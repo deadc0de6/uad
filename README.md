@@ -9,6 +9,26 @@ It supports drag-and-drop.
 
 # Usage
 
+```bash
+$ ./uad -help
+
+Usage: ./uad [<options>]
+  -help
+    	Show usage
+  -host string
+    	Host to listen to
+  -no-downloads
+    	Disable downloads
+  -no-uploads
+    	Disable uploads
+  -path string
+    	Destination path for uploaded files (default "./uploads")
+  -port int
+    	Port to listen to (default 6969)
+  -version
+    	Show version
+```
+
 # Install
 
 Pick a release from [the release page](https://github.com/deadc0de6/uad/releases) and
