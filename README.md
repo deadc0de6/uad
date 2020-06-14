@@ -3,6 +3,9 @@
 # uad
 
 [uad](https://github.com/deadc0de6/uad) is a very tiny web server allowing to upload and download files.
+It supports drag-and-drop.
+
+![Alt text](/screenshots/uad.png?raw=true)
 
 # Usage
 
