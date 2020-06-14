@@ -2,10 +2,8 @@
 
 # uad
 
-[uad](https://github.com/deadc0de6/uad) is a very tiny web server allowing to upload and download files.
-It supports drag-and-drop.
-
-![](/screenshots/uad.png?raw=true "uad")
+[uad](https://github.com/deadc0de6/uad) (**u**pload **a**nd **d**ownload) is a very tiny
+web server allowing to upload and download files.
 
 # Usage
 
@@ -49,11 +47,14 @@ $ docker run -it --name uad -v /tmp/uploads:/uploads -p 6969:6969 uad
 
 ## Compile from source
 
-compile
 ```bash
 $ go build
 $ ./uad -help
 ```
+
+# Screenshot
+
+![](/screenshots/uad.png?raw=true "uad")
 
 # Contribution
 
