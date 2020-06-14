@@ -17,8 +17,14 @@ install it in your `$PATH`.
 ## docker
 
 ```bash
+$ docker run --name uad -v /tmp/uploads:/uploads -p 6969:6969 deadc0de6/uad:v0.1
+```
+
+or built the image yourself
+
+```bash
 $ docker build -t uad .
-$ docker run -it --name uad -v /tmp/test:/uploads -p 6969:6969 uad
+$ docker run -it --name uad -v /tmp/uploads:/uploads -p 6969:6969 uad
 ```
 
 ## Compile from source
