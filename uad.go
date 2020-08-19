@@ -17,7 +17,7 @@ import (
 
 const (
 	FCreationRights = 0666
-	Version         = "0.2"
+	Version         = "0.2.1"
 	FileWebPath     = "/files/"
 	Title           = "uad"
 )
@@ -102,6 +102,7 @@ func saveFile(file io.Reader, name string) error {
 		return err
 	}
 	io.Copy(dstf, file)
+	fmt.Printf("file saved to \"%s\"\n", dst)
 	return nil
 }
 
