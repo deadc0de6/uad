@@ -16,9 +16,8 @@ import (
 )
 
 const (
-	MaxUploadSize   = 1 << 30
 	FCreationRights = 0666
-	Version         = "0.1"
+	Version         = "0.2"
 	FileWebPath     = "/files/"
 	Title           = "uad"
 )
@@ -28,6 +27,7 @@ var (
 	Units           = []string{"B", "KB", "MB", "GB", "TB", "PB"}
 	EnableUploads   = true
 	EnableDownloads = true
+	MaxUploadSize   = int64(1 << 30)
 )
 
 type TmplData struct {
@@ -47,10 +47,12 @@ type HTMLFile struct {
 // return size in human readable format
 func humanSize(bytes int64) string {
 	size := bytes
+	rest := int64(0)
 	for _, unit := range Units {
 		if size < 1024 {
-			return fmt.Sprintf("%d %s", size, unit)
+			return fmt.Sprintf("%d.%d %s", size, rest, unit)
 		}
+		rest = size % 1024
 		size = size / 1024
 	}
 	return "??"
@@ -216,6 +218,7 @@ func main() {
 	hostArg := flag.String("host", "", "Host to listen to")
 	portArg := flag.Int("port", 6969, "Port to listen to")
 	dstArg := flag.String("path", UploadDst, "Destination path for uploaded files")
+	MaxUploadSizeArg := flag.Int64("max-upload", MaxUploadSize, "Max upload size")
 	upArg := flag.Bool("no-uploads", false, "Disable uploads")
 	downArg := flag.Bool("no-downloads", false, "Disable downloads")
 	helpArg := flag.Bool("help", false, "Show usage")
@@ -235,8 +238,10 @@ func main() {
 	UploadDst = *dstArg
 	EnableUploads = !*upArg
 	EnableDownloads = !*downArg
+	MaxUploadSize = *MaxUploadSizeArg
 	fmt.Printf("upload destination: %s\n", UploadDst)
 	fmt.Printf("uploads enabled: %v\n", EnableUploads)
+	fmt.Printf("max upload size: %s\n", humanSize(MaxUploadSize))
 	fmt.Printf("downloads enabled: %v\n", EnableDownloads)
 
 	err := startServer(*hostArg, *portArg)
