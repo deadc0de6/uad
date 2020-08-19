@@ -15,6 +15,8 @@ Usage: ./uad [<options>]
     	Show usage
   -host string
     	Host to listen to
+  -max-upload int
+    	Max upload size (default 1073741824)
   -no-downloads
     	Disable downloads
   -no-uploads
