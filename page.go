@@ -162,7 +162,6 @@ var Page = `<!DOCTYPE html>
       document.querySelector('form').addEventListener('submit', (e) => {
         e.preventDefault()
         const files = document.querySelector('[type=file]').files
-        console.log(files)
         for (let i = 0; i < files.length; i++) {
           let file = files[i]
           uploadFileProgress(file)
@@ -176,8 +175,12 @@ var Page = `<!DOCTYPE html>
         // progress event
         request.upload.addEventListener('progress', function(e) {
           let percent_completed = (e.loaded / e.total) * 100;
-          progress(Math.floor(percent_completed));
-          errlog("uploading: " + Math.floor(percent_completed) + "%");
+          percent = Math.floor(percent_completed);
+          if (percent >= 99) {
+            percent = 99;
+          }
+          progress(percent)
+          errlog("uploading: " + percent + "%");
         });
 
         request.addEventListener('load', function(e) {
@@ -192,7 +195,11 @@ var Page = `<!DOCTYPE html>
           // hide footer
           errlog("")
           // HTTP status message (200, 404 etc)
-          console.log(request.status);
+          if (request.status == 200) {
+            errlog("file uploaded!");
+          } else {
+            errlog("upload error: " + request.status);
+          }
         });
 
         let data = new FormData();
@@ -201,7 +208,6 @@ var Page = `<!DOCTYPE html>
       }
 
       async function uploadFile(file) {
-        console.log(file)
         let url = '/upload';
         let formData = new FormData();
 
