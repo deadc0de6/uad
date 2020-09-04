@@ -47,7 +47,7 @@ var Page = `<!DOCTYPE html>
         left: 0;
         bottom: 0;
         width: 100%;
-        color: red;
+        color: white;
         text-align: center;
       }
 
@@ -64,6 +64,19 @@ var Page = `<!DOCTYPE html>
       }
       .wide {
         width: 300px;
+      }
+
+      #theprogress {
+        width: 100%;
+        background-color: grey;
+        display: none;
+      }
+
+      #thebar {
+        width: 0%;
+        height: 30px;
+        background-color: #2c87f0;
+        display: none;
       }
     </style>
     <title>{{ .Title }}</title>
@@ -143,7 +156,7 @@ var Page = `<!DOCTYPE html>
       }
 
       function handleFiles(files) {
-        ([...files]).forEach(uploadFile);
+        ([...files]).forEach(uploadFileProgress);
       }
 
       document.querySelector('form').addEventListener('submit', (e) => {
@@ -152,9 +165,40 @@ var Page = `<!DOCTYPE html>
         console.log(files)
         for (let i = 0; i < files.length; i++) {
           let file = files[i]
-          uploadFile(file)
+          uploadFileProgress(file)
         }
       })
+
+      function uploadFileProgress(file) {
+        let request = new XMLHttpRequest();
+        request.open('POST', '/upload');
+
+        // progress event
+        request.upload.addEventListener('progress', function(e) {
+          let percent_completed = (e.loaded / e.total) * 100;
+          progress(Math.floor(percent_completed));
+          errlog("uploading: " + Math.floor(percent_completed) + "%");
+        });
+
+        request.addEventListener('load', function(e) {
+          // reload
+          location.reload();
+          // hide bar
+          var bar = document.getElementById("thebar");
+          bar.style.display = "none";
+          // hide progress
+          var progr = document.getElementById("theprogress");
+          progr.style.display = "none";
+          // hide footer
+          errlog("")
+          // HTTP status message (200, 404 etc)
+          console.log(request.status);
+        });
+
+        let data = new FormData();
+        data.append('file', file);
+        request.send(data);
+      }
 
       async function uploadFile(file) {
         console.log(file)
@@ -183,9 +227,28 @@ var Page = `<!DOCTYPE html>
       function errlog(content) {
           document.getElementById("foot").innerHTML = content;
       };
+
+      function progress(percent) {
+        var bar = document.getElementById("thebar");
+        bar.style.width = percent + "%";
+
+        var progr = document.getElementById("theprogress");
+
+        // hide bar if done
+        if (percent == 100) {
+          bar.style.display = "none";
+          progr.style.display = "none";
+        } else {
+          bar.style.display = "block"
+          progr.style.display = "block"
+        }
+      }
     </script>
     <footer>
       <p id="foot"></p>
+      <div id="theprogress">
+        <div id="thebar"></div>
+      </div>
     </footer>
   </body>
 </html>`

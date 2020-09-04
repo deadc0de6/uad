@@ -175,6 +175,7 @@ func uploadHandler(param Param) http.Handler {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
+		fmt.Printf("%v bytes received\n", r.ContentLength)
 
 		file, fhandler, err := r.FormFile("file")
 		if err != nil {
