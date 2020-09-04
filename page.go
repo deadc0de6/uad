@@ -12,19 +12,23 @@ var Page = `<!DOCTYPE html>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
     <style>
-			body {
-				background-color: black;
-				color: white;
-			}
-			a {
-				color: #2c87f0;
-			}
-			a:visited {
-				color: #636;
-			}
-			a:hover, a:active, a:focus {
-				color:#c33;
-			}
+      body {
+        background-color: black;
+        color: white;
+      }
+
+      a {
+        color: #2c87f0;
+      }
+
+      a:visited {
+        color: #636;
+      }
+
+      a:hover, a:active, a:focus {
+        color:#c33;
+      }
+
       #drophere {
         border: 2px dashed #ccc;
         border-radius: 20px;
@@ -38,10 +42,19 @@ var Page = `<!DOCTYPE html>
         background-color: grey;
       }
 
-			table.center {
-				margin-left:auto;
-				margin-right:auto;
-			}
+      footer {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        color: red;
+        text-align: center;
+      }
+
+      table.center {
+        margin-left:auto;
+        margin-right:auto;
+      }
 
       th,
       td {
@@ -56,17 +69,18 @@ var Page = `<!DOCTYPE html>
     <title>{{ .Title }}</title>
   </head>
   <body>
-		{{ if .EnableUploads }}
+    {{ if .EnableUploads }}
     <div id="drophere">
-      <form enctype="multipart/form-data" action="/upload" method="post">
-        <input type="file" name="file"/>
-        <input type="submit" value="upload"/>
+      <!--<form enctype="multipart/form-data" action="/upload" method="post"">-->
+      <form enctype="multipart/form-data" method="post" >
+        <input type="file" name="files[]" multiple />
+        <input type="submit" value="upload" name="submit" />
       </form>
     </div>
-		{{ end }}
-		{{ if .EnableDownloads }}
+    {{ end }}
+    {{ if .EnableDownloads }}
     <div>
-			{{ if .Files }}
+      {{ if .Files }}
       <table class="center">
         <tr>
           <th>Name</th>
@@ -81,9 +95,9 @@ var Page = `<!DOCTYPE html>
         </tr>
         {{end}}
       </table>
-			{{ end }}
+      {{ end }}
     </div>
-		{{ end }}
+    {{ end }}
     <!--
     <div>
       <a href="/files/">Uploaded files</a>
@@ -132,24 +146,46 @@ var Page = `<!DOCTYPE html>
         ([...files]).forEach(uploadFile);
       }
 
-      function uploadFile(file) {
+      document.querySelector('form').addEventListener('submit', (e) => {
+        e.preventDefault()
+        const files = document.querySelector('[type=file]').files
+        console.log(files)
+        for (let i = 0; i < files.length; i++) {
+          let file = files[i]
+          uploadFile(file)
+        }
+      })
+
+      async function uploadFile(file) {
+        console.log(file)
         let url = '/upload';
         let formData = new FormData();
 
         formData.append('file', file);
 
-        fetch(url, {
-          method: 'POST',
-          body: formData
-        })
-        .then(() => {
-          // succeed
-          location.reload();
-        })
-        .catch(() => {
-          // error
-        })
+        errlog("uploading ...");
+        try {
+          let r = await fetch(url, {
+            method: 'POST',
+            body: formData
+          });
+          if (r.ok) {
+            location.reload();
+            errlog("upload success!");
+          } else {
+            errlog("upload error: " + r.status);
+          }
+        } catch(e) {
+          errlog("upload error: " + e);
+        };
       }
+
+      function errlog(content) {
+          document.getElementById("foot").innerHTML = content;
+      };
     </script>
+    <footer>
+      <p id="foot"></p>
+    </footer>
   </body>
 </html>`
