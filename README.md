@@ -50,7 +50,7 @@ $ docker run -it --name uad -v /tmp/uploads:/uploads -p 6969:6969 uad
 ## Compile from source
 
 ```bash
-$ go build
+$ GO111MODULE=on go build
 $ ./uad -help
 ```
 
