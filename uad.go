@@ -18,18 +18,19 @@ import (
 )
 
 const (
-	FCreationRights = 0666
-	Version         = "0.3.0"
-	FileWebPath     = "/files/"
-	Title           = "uad"
+	fCreationRights = 0666
+	version         = "0.3.0"
+	fileWebPath     = "/files/"
+	title           = "uad"
 )
 
 var (
-	DfltUploadDst     = "./uploads"
-	DfltMaxUploadSize = int64(1 << 30)
-	Units             = []string{"B", "K", "M", "G", "T", "P"}
+	dfltUploadDst     = "./uploads"
+	dfltMaxUploadSize = "1G"
+	units             = []string{"B", "K", "M", "G", "T", "P"}
 )
 
+// Param global parameters
 type Param struct {
 	Host            string
 	Port            int
@@ -39,6 +40,7 @@ type Param struct {
 	EnableDownloads bool
 }
 
+// TmplData template parameters
 type TmplData struct {
 	Title           string
 	Files           []HTMLFile
@@ -46,6 +48,7 @@ type TmplData struct {
 	EnableDownloads bool
 }
 
+// HTMLFile an uploaded file
 type HTMLFile struct {
 	Name     string
 	Size     string
@@ -53,11 +56,11 @@ type HTMLFile struct {
 	Path     string
 }
 
-// return size in human readable format
+// SizeToHuman return size in human readable format
 func SizeToHuman(bytes int64) string {
 	size := bytes
 	rest := int64(0)
-	for _, unit := range Units {
+	for _, unit := range units {
 		if size < 1024 {
 			return fmt.Sprintf("%d.%d%s", size, rest, unit)
 		}
@@ -67,7 +70,7 @@ func SizeToHuman(bytes int64) string {
 	return "??"
 }
 
-// return human size in bytes
+// HumanToSize return human size in bytes
 func HumanToSize(size string) (int64, error) {
 	unit := string(size[len(size)-1])
 	sz := string(size[:len(size)-1])
@@ -110,7 +113,7 @@ func walker(hfiles *[]HTMLFile) filepath.WalkFunc {
 			Name:     info.Name(),
 			Size:     SizeToHuman(info.Size()),
 			Modified: info.ModTime().Format("2006-01-02 15:04:05"),
-			Path:     filepath.Join(FileWebPath, info.Name()),
+			Path:     filepath.Join(fileWebPath, info.Name()),
 		}
 
 		*hfiles = append(*hfiles, hfile)
@@ -136,7 +139,7 @@ func saveFile(file io.Reader, name string, dstdir string) error {
 	mkdirp(dstdir)
 	dst := filepath.Join(dstdir, name)
 	fmt.Printf("saving file to \"%s\" ...\n", dst)
-	dstf, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE, FCreationRights)
+	dstf, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE, fCreationRights)
 	if err != nil {
 		return err
 	}
@@ -222,7 +225,7 @@ func viewHandler(param Param) http.Handler {
 		}
 
 		data := TmplData{
-			Title:           Title,
+			Title:           title,
 			Files:           files,
 			EnableUploads:   param.EnableUploads,
 			EnableDownloads: param.EnableDownloads,
@@ -247,7 +250,7 @@ func startServer(param Param) error {
 	// handle downloads
 	if param.EnableDownloads {
 		fs := http.FileServer(http.Dir(param.UploadDst))
-		http.Handle(FileWebPath, http.StripPrefix(FileWebPath, fs))
+		http.Handle(fileWebPath, http.StripPrefix(fileWebPath, fs))
 	}
 
 	// start the server
@@ -259,6 +262,7 @@ func startServer(param Param) error {
 	return nil
 }
 
+// print usage
 func usage() {
 	fmt.Fprintf(os.Stderr, "Usage: %s [<options>]\n", os.Args[0])
 	flag.PrintDefaults()
@@ -267,8 +271,8 @@ func usage() {
 func main() {
 	hostArg := flag.String("host", "", "Host to listen to")
 	portArg := flag.Int("port", 6969, "Port to listen to")
-	dstArg := flag.String("path", DfltUploadDst, "Destination path for uploaded files")
-	MaxUploadSizeArg := flag.String("max-upload", SizeToHuman(DfltMaxUploadSize), "Max upload size in bytes")
+	dstArg := flag.String("path", dfltUploadDst, "Destination path for uploaded files")
+	maxUploadSizeArg := flag.String("max-upload", dfltMaxUploadSize, "Max upload size in bytes")
 	upArg := flag.Bool("no-uploads", false, "Disable uploads")
 	downArg := flag.Bool("no-downloads", false, "Disable downloads")
 	helpArg := flag.Bool("help", false, "Show usage")
@@ -281,11 +285,12 @@ func main() {
 	}
 
 	if *versArg {
-		fmt.Printf("%s v%s\n", os.Args[0], Version)
+		fmt.Printf("%s v%s\n", os.Args[0], version)
 		os.Exit(0)
 	}
 
-	MaxUploadSize, err := HumanToSize(*MaxUploadSizeArg)
+	fmt.Println(*maxUploadSizeArg)
+	MaxUploadSize, err := HumanToSize(*maxUploadSizeArg)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

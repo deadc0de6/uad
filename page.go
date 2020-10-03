@@ -5,6 +5,7 @@ Copyright (c) 2020, deadc0de6
 
 package main
 
+// Page the main page
 var Page = `<!DOCTYPE html>
 <html lang="en">
   <head>
