@@ -7,16 +7,17 @@ go:
   - '1.14.x'
   - '1.15.x'
   - 'tip'
-include:
-  - os: windows
-    script:
-    - go build
-    - bash ./test.sh
-  - os: osx
-    script:
-    - go build
-    - ./test.sh
-  - os: linux
-    script:
-    - go build
-    - ./test.sh
+jobs:
+  include:
+    - os: windows
+      script:
+      - go build
+      - bash ./test.sh
+    - os: osx
+      script:
+      - go build
+      - ./test.sh
+    - os: linux
+      script:
+      - go build
+      - ./test.sh
