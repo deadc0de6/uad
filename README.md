@@ -37,6 +37,7 @@ install it in your `$PATH`.
 
 ## docker
 
+from [dockerhub](https://hub.docker.com/r/deadc0de6/uad)
 ```bash
 $ docker run --name uad -v /tmp/uploads:/uploads -p 6969:6969 deadc0de6/uad:v0.1
 ```
