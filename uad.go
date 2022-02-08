@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -25,7 +26,7 @@ const (
 )
 
 var (
-	dfltUploadDst     = "./uploads"
+	dfltUploadDst     = "."
 	dfltMaxUploadSize = "1G"
 	units             = []string{"B", "K", "M", "G", "T", "P"}
 )
@@ -34,10 +35,11 @@ var (
 type Param struct {
 	Host            string
 	Port            int
-	UploadDst       string
+	Path            string
 	MaxUploadSize   int64
 	EnableUploads   bool
 	EnableDownloads bool
+	HiddenFiles     bool
 }
 
 // TmplData template parameters
@@ -53,7 +55,10 @@ type HTMLFile struct {
 	Name     string
 	Size     string
 	Modified string
-	Path     string
+	// Path web path
+	Path string
+	// RPath real path on filesystem
+	RPath string
 }
 
 // SizeToHuman return size in human readable format
@@ -100,7 +105,7 @@ func HumanToSize(size string) (int64, error) {
 }
 
 // walk a directory and return HTMLFiles list
-func walker(hfiles *[]HTMLFile) filepath.WalkFunc {
+func walker(hfiles *[]HTMLFile, hiddenFiles bool) filepath.WalkFunc {
 	return func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
@@ -109,11 +114,22 @@ func walker(hfiles *[]HTMLFile) filepath.WalkFunc {
 			return nil
 		}
 
+		name := info.Name()
+		fpath := path
+		wpath := filepath.Join(fileWebPath, path)
+
+		if !hiddenFiles {
+			if strings.HasPrefix(fpath, ".") {
+				return nil
+			}
+		}
+
 		hfile := HTMLFile{
-			Name:     info.Name(),
+			Name:     name,
 			Size:     SizeToHuman(info.Size()),
 			Modified: info.ModTime().Format("2006-01-02 15:04:05"),
-			Path:     filepath.Join(fileWebPath, info.Name()),
+			Path:     wpath,
+			RPath:    fpath,
 		}
 
 		*hfiles = append(*hfiles, hfile)
@@ -122,12 +138,12 @@ func walker(hfiles *[]HTMLFile) filepath.WalkFunc {
 }
 
 // get list of files in upload dir
-func getFiles(path string, enabled bool) ([]HTMLFile, error) {
+func getFiles(path string, enabled bool, hidden bool) ([]HTMLFile, error) {
 	var hfiles []HTMLFile
 	if !enabled {
 		return nil, nil
 	}
-	err := filepath.Walk(path, walker(&hfiles))
+	err := filepath.Walk(path, walker(&hfiles, hidden))
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +205,7 @@ func uploadHandler(param Param) http.Handler {
 		defer file.Close()
 
 		name := fhandler.Filename
-		err = saveFile(file, name, param.UploadDst)
+		err = saveFile(file, name, param.Path)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			http.Error(w, err.Error(), 500)
@@ -210,7 +226,7 @@ func viewHandler(param Param) http.Handler {
 			return
 		}
 
-		files, err := getFiles(param.UploadDst, param.EnableDownloads)
+		files, err := getFiles(param.Path, param.EnableDownloads, param.HiddenFiles)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return
@@ -249,7 +265,7 @@ func startServer(param Param) error {
 
 	// handle downloads
 	if param.EnableDownloads {
-		fs := http.FileServer(http.Dir(param.UploadDst))
+		fs := http.FileServer(http.Dir(param.Path))
 		http.Handle(fileWebPath, http.StripPrefix(fileWebPath, fs))
 	}
 
@@ -271,10 +287,11 @@ func usage() {
 func main() {
 	hostArg := flag.String("host", "", "Host to listen to")
 	portArg := flag.Int("port", 6969, "Port to listen to")
-	dstArg := flag.String("path", dfltUploadDst, "Destination path for uploaded files")
+	pathArg := flag.String("path", dfltUploadDst, "Files repository (download/upload)")
 	maxUploadSizeArg := flag.String("max-upload", dfltMaxUploadSize, "Max upload size in bytes")
 	upArg := flag.Bool("no-uploads", false, "Disable uploads")
 	downArg := flag.Bool("no-downloads", false, "Disable downloads")
+	hiddenArg := flag.Bool("show-hidden", false, "Show hidden files")
 	helpArg := flag.Bool("help", false, "Show usage")
 	versArg := flag.Bool("version", false, "Show version")
 	flag.Parse()
@@ -298,16 +315,20 @@ func main() {
 	param := Param{
 		Host:            *hostArg,
 		Port:            *portArg,
-		UploadDst:       *dstArg,
+		Path:            *pathArg,
 		EnableUploads:   !*upArg,
 		EnableDownloads: !*downArg,
 		MaxUploadSize:   MaxUploadSize,
+		HiddenFiles:     *hiddenArg,
 	}
 
+	fmt.Printf("- path: \"%s\"\n", param.Path)
 	fmt.Printf("- download enabled: %v\n", param.EnableDownloads)
 	fmt.Printf("- upload enabled: %v\n", param.EnableUploads)
-	fmt.Printf("- upload destination: %s\n", param.UploadDst)
-	fmt.Printf("- upload max size: %v\n", SizeToHuman(param.MaxUploadSize))
+	if param.EnableUploads {
+		fmt.Printf("- upload max size: %v\n", SizeToHuman(param.MaxUploadSize))
+	}
+	fmt.Printf("- show hidden files: %v\n", param.HiddenFiles)
 
 	err = startServer(param)
 	if err != nil {

@@ -99,11 +99,11 @@ var Page = `<!DOCTYPE html>
         <tr>
           <th>Name</th>
           <th>Size</th>
-          <th>Uploaded</th>
+          <th>Last modified</th>
         </tr>
         {{range .Files}}
         <tr>
-          <td class="wide"><a href="{{.Path}}">{{.Name}}</a></td>
+          <td class="wide"><a href="{{.Path}}">{{.RPath}}</a></td>
           <td>{{.Size}}</td>
           <td>{{.Modified}}</td>
         </tr>
