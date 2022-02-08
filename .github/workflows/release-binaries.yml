@@ -1,0 +1,26 @@
+name: release-binaries
+on:
+  release:
+    types: [created]
+jobs:
+  releases:
+    name: release binaries
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux]
+        goarch: [arm, arm64, 386, amd64]
+    steps:
+    - uses: actions/checkout@v2
+    - uses: wangyoucao577/go-release-action@v1.19
+      with:
+        goversion: 1.16
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        goos: ${{ matrix.goos }}
+        goarch: ${{ matrix.goarch }}
+        project_path: "."
+        binary_name: "uad"
+        ldflags: "-s -w"
+        overwrite: true
+        extra_files: LICENSE README.md
+        pre_command: "go mod tidy"
