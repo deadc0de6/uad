@@ -289,7 +289,6 @@ func main() {
 		os.Exit(0)
 	}
 
-	fmt.Println(*maxUploadSizeArg)
 	MaxUploadSize, err := HumanToSize(*maxUploadSizeArg)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -305,10 +304,10 @@ func main() {
 		MaxUploadSize:   MaxUploadSize,
 	}
 
-	fmt.Printf("download enabled: %v\n", param.EnableDownloads)
-	fmt.Printf("upload enabled: %v\n", param.EnableUploads)
-	fmt.Printf("upload destination: %s\n", param.UploadDst)
-	fmt.Printf("upload max size: %v\n", SizeToHuman(param.MaxUploadSize))
+	fmt.Printf("- download enabled: %v\n", param.EnableDownloads)
+	fmt.Printf("- upload enabled: %v\n", param.EnableUploads)
+	fmt.Printf("- upload destination: %s\n", param.UploadDst)
+	fmt.Printf("- upload max size: %v\n", SizeToHuman(param.MaxUploadSize))
 
 	err = startServer(param)
 	if err != nil {
