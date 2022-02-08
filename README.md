@@ -11,23 +11,23 @@ web server allowing to upload and download files.
 # Usage
 
 ```bash
-$ ./uad -help
-
-Usage: ./uad [<options>]
+Usage of ./uad:
   -help
     	Show usage
   -host string
     	Host to listen to
   -max-upload string
-    	Max upload size in bytes (default "1.0G")
+    	Max upload size in bytes (default "1G")
   -no-downloads
     	Disable downloads
   -no-uploads
     	Disable uploads
   -path string
-    	Destination path for uploaded files (default "./uploads")
+    	Files repository (download/upload) (default ".")
   -port int
     	Port to listen to (default 6969)
+  -show-hidden
+    	Show hidden files
   -version
     	Show version
 ```
@@ -36,20 +36,6 @@ Usage: ./uad [<options>]
 
 Pick a release from [the release page](https://github.com/deadc0de6/uad/releases) and
 install it in your `$PATH`.
-
-## docker
-
-from [dockerhub](https://hub.docker.com/r/deadc0de6/uad)
-```bash
-$ docker run --name uad -v /tmp/uploads:/uploads -p 6969:6969 deadc0de6/uad:latest
-```
-
-or built the image yourself
-
-```bash
-$ docker build -t uad .
-$ docker run -it --name uad -v /tmp/uploads:/uploads -p 6969:6969 uad
-```
 
 ## Compile from source
 
