@@ -213,7 +213,7 @@ func uploadHandler(param Param) http.Handler {
 		}
 
 		// redirect to main page
-		http.Redirect(w, r, r.Header.Get("Referer"), 302)
+		http.Redirect(w, r, r.Header.Get("Referer"), http.StatusFound)
 	}
 	return http.HandlerFunc(fn)
 }
