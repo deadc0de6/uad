@@ -9,6 +9,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"html/template"
 	"io"
 	"net/http"
@@ -55,8 +56,8 @@ type HTMLFile struct {
 	Name     string
 	Size     string
 	Modified string
-	// Path web path
-	Path string
+	// WPath web path
+	WPath string
 	// RPath real path on filesystem
 	RPath string
 }
@@ -105,9 +106,10 @@ func HumanToSize(size string) (int64, error) {
 }
 
 // walk a directory and return HTMLFiles list
-func walker(hfiles *[]HTMLFile, hiddenFiles bool) filepath.WalkFunc {
+func walker(base string, hfiles *[]HTMLFile, hiddenFiles bool) filepath.WalkFunc {
 	return func(path string, info os.FileInfo, err error) error {
 		if err != nil {
+			log.Error(err)
 			return nil
 		}
 		if info.IsDir() {
@@ -116,7 +118,12 @@ func walker(hfiles *[]HTMLFile, hiddenFiles bool) filepath.WalkFunc {
 
 		name := info.Name()
 		fpath := path
-		wpath := filepath.Join(fileWebPath, path)
+		rel, err := filepath.Rel(base, path)
+		if err != nil {
+			log.Error(err)
+			return nil
+		}
+		wpath := filepath.Join(fileWebPath, rel)
 
 		if !hiddenFiles {
 			if strings.HasPrefix(fpath, ".") {
@@ -128,9 +135,10 @@ func walker(hfiles *[]HTMLFile, hiddenFiles bool) filepath.WalkFunc {
 			Name:     name,
 			Size:     SizeToHuman(info.Size()),
 			Modified: info.ModTime().Format("2006-01-02 15:04:05"),
-			Path:     wpath,
+			WPath:    wpath,
 			RPath:    fpath,
 		}
+		log.Debugf("%#v", hfile)
 
 		*hfiles = append(*hfiles, hfile)
 		return nil
@@ -138,12 +146,9 @@ func walker(hfiles *[]HTMLFile, hiddenFiles bool) filepath.WalkFunc {
 }
 
 // get list of files in upload dir
-func getFiles(path string, enabled bool, hidden bool) ([]HTMLFile, error) {
+func getFiles(path string, hidden bool) ([]HTMLFile, error) {
 	var hfiles []HTMLFile
-	if !enabled {
-		return nil, nil
-	}
-	err := filepath.Walk(path, walker(&hfiles, hidden))
+	err := filepath.Walk(path, walker(path, &hfiles, hidden))
 	if err != nil {
 		return nil, err
 	}
@@ -187,14 +192,14 @@ func uploadHandler(param Param) http.Handler {
 
 		r.Body = http.MaxBytesReader(w, r.Body, param.MaxUploadSize)
 
-		fmt.Printf("parsing multipart form ...\n")
+		log.Debug("parsing multipart form ...")
 		err := r.ParseMultipartForm(param.MaxUploadSize)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		fmt.Printf("%v bytes received\n", r.ContentLength)
+		log.Debugf("%v bytes received", r.ContentLength)
 
 		file, fhandler, err := r.FormFile("file")
 		if err != nil {
@@ -207,7 +212,7 @@ func uploadHandler(param Param) http.Handler {
 		name := fhandler.Filename
 		err = saveFile(file, name, param.Path)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
+			log.Error(err)
 			http.Error(w, err.Error(), 500)
 			return
 		}
@@ -221,21 +226,26 @@ func uploadHandler(param Param) http.Handler {
 // handle / endpoint
 func viewHandler(param Param) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
+		var err error
+		log.Debug("access to /")
 		if r.Method != "GET" {
 			http.NotFound(w, r)
 			return
 		}
 
-		files, err := getFiles(param.Path, param.EnableDownloads, param.HiddenFiles)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			return
+		var files []HTMLFile
+		if param.EnableDownloads {
+			files, err = getFiles(param.Path, param.HiddenFiles)
+			if err != nil {
+				log.Error(err)
+				return
+			}
 		}
 
 		t := template.New("t")
 		t, err = t.Parse(Page)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
+			log.Error(err)
 			http.Error(w, err.Error(), 500)
 			return
 		}
@@ -265,6 +275,8 @@ func startServer(param Param) error {
 
 	// handle downloads
 	if param.EnableDownloads {
+		log.Info(param.Path)
+		log.Info(fileWebPath)
 		fs := http.FileServer(http.Dir(param.Path))
 		http.Handle(fileWebPath, http.StripPrefix(fileWebPath, fs))
 	}
@@ -294,7 +306,12 @@ func main() {
 	hiddenArg := flag.Bool("show-hidden", false, "Show hidden files")
 	helpArg := flag.Bool("help", false, "Show usage")
 	versArg := flag.Bool("version", false, "Show version")
+	debugArg := flag.Bool("debug", false, "Debug mode")
 	flag.Parse()
+
+	if *debugArg {
+		log.SetLevel(log.DebugLevel)
+	}
 
 	if *helpArg {
 		usage()
@@ -308,14 +325,20 @@ func main() {
 
 	MaxUploadSize, err := HumanToSize(*maxUploadSizeArg)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		log.Error(err)
+		os.Exit(1)
+	}
+
+	path, err := filepath.Abs(*pathArg)
+	if err != nil {
+		log.Error(err)
 		os.Exit(1)
 	}
 
 	param := Param{
 		Host:            *hostArg,
 		Port:            *portArg,
-		Path:            *pathArg,
+		Path:            path,
 		EnableUploads:   !*upArg,
 		EnableDownloads: !*downArg,
 		MaxUploadSize:   MaxUploadSize,
@@ -332,7 +355,7 @@ func main() {
 
 	err = startServer(param)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		log.Error(err)
 		os.Exit(1)
 	}
 	os.Exit(0)

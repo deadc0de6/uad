@@ -40,6 +40,7 @@ install it in your `$PATH`.
 ## Compile from source
 
 ```bash
+$ go mod tidy
 $ make
 $ ./uad -help
 ```
