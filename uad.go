@@ -62,7 +62,9 @@ type HTMLFile struct {
 	Modified string
 	// WPath web path
 	WPath string
-	// RPath real path on filesystem
+	// APath absolute path on filesystem
+	APath string
+	// RPath relative path on filesystem
 	RPath string
 }
 
@@ -122,12 +124,12 @@ func walker(base string, hfiles *[]HTMLFile, hiddenFiles bool) filepath.WalkFunc
 
 		name := info.Name()
 		fpath := path
-		rel, err := filepath.Rel(base, path)
+		rpath, err := filepath.Rel(base, path)
 		if err != nil {
 			log.Error(err)
 			return nil
 		}
-		wpath := filepath.Join(fileWebPath, rel)
+		wpath := filepath.Join(fileWebPath, rpath)
 
 		if !hiddenFiles {
 			if strings.HasPrefix(fpath, ".") {
@@ -140,7 +142,8 @@ func walker(base string, hfiles *[]HTMLFile, hiddenFiles bool) filepath.WalkFunc
 			Size:     SizeToHuman(info.Size()),
 			Modified: info.ModTime().Format("2006-01-02 15:04:05"),
 			WPath:    wpath,
-			RPath:    fpath,
+			APath:    fpath,
+			RPath:    rpath,
 		}
 		log.Debugf("%#v", hfile)
 
