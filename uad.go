@@ -29,7 +29,6 @@ const (
 )
 
 var (
-	dfltUploadDst     = "."
 	dfltMaxUploadSize = "1G"
 	units             = []string{"B", "K", "M", "G", "T", "P"}
 	//go:embed "page.html"
@@ -297,6 +296,18 @@ func startServer(param Param) error {
 	return nil
 }
 
+func isValidDir(path string) error {
+	dir, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+
+	if !dir.IsDir() {
+		return fmt.Errorf("%s is not a valid directory", path)
+	}
+	return nil
+}
+
 // print usage
 func usage() {
 	fmt.Fprintf(os.Stderr, "Usage: %s [<options>]\n", os.Args[0])
@@ -304,9 +315,10 @@ func usage() {
 }
 
 func main() {
+	var path string
+
 	hostArg := flag.String("host", "", "Host to listen to")
 	portArg := flag.Int("port", 6969, "Port to listen to")
-	pathArg := flag.String("path", dfltUploadDst, "Files repository (download/upload)")
 	maxUploadSizeArg := flag.String("max-upload", dfltMaxUploadSize, "Max upload size in bytes")
 	upArg := flag.Bool("no-uploads", false, "Disable uploads")
 	downArg := flag.Bool("no-downloads", false, "Disable downloads")
@@ -315,6 +327,10 @@ func main() {
 	versArg := flag.Bool("version", false, "Show version")
 	debugArg := flag.Bool("debug", false, "Debug mode")
 	flag.Parse()
+
+	if len(flag.Args()) < 1 {
+		path = "."
+	}
 
 	if *debugArg {
 		log.SetLevel(log.DebugLevel)
@@ -330,13 +346,17 @@ func main() {
 		os.Exit(0)
 	}
 
-	MaxUploadSize, err := HumanToSize(*maxUploadSizeArg)
+	// validate paths
+	err := isValidDir(path)
 	if err != nil {
-		log.Error(err)
-		os.Exit(1)
+		log.Fatal(err)
+	}
+	path, err = filepath.Abs(path)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	path, err := filepath.Abs(*pathArg)
+	MaxUploadSize, err := HumanToSize(*maxUploadSizeArg)
 	if err != nil {
 		log.Error(err)
 		os.Exit(1)
