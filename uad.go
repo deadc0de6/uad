@@ -23,7 +23,7 @@ import (
 
 const (
 	fCreationRights = 0666
-	version         = "0.5.1"
+	version         = "0.5.2"
 	fileWebPath     = "/files/"
 	title           = "uad"
 )
