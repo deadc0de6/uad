@@ -35,7 +35,7 @@ Usage of ./uad:
 # Install
 
 Pick a release from [the release page](https://github.com/deadc0de6/uad/releases) and
-install it in your `$PATH`.
+install it in your `$PATH` or [compile from source](#compile-from-source).
 
 ## Compile from source
 

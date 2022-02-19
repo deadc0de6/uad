@@ -9,7 +9,7 @@ ENV GO111MODULE=off \
 # create working dir
 WORKDIR /build
 COPY uad.go .
-COPY page.go .
+COPY page.html .
 
 # build
 RUN go build -o main .
