@@ -1,4 +1,4 @@
-SRC = uad.go page.go
+SRC = uad.go # page.go
 BIN = uad
 
 all: build

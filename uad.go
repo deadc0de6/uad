@@ -6,10 +6,10 @@ Copyright (c) 2020, deadc0de6
 package main
 
 import (
+	_ "embed"
 	"errors"
 	"flag"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"html/template"
 	"io"
 	"net/http"
@@ -17,6 +17,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -30,6 +32,8 @@ var (
 	dfltUploadDst     = "."
 	dfltMaxUploadSize = "1G"
 	units             = []string{"B", "K", "M", "G", "T", "P"}
+	//go:embed "page.html"
+	page string
 )
 
 // Param global parameters
@@ -243,7 +247,7 @@ func viewHandler(param Param) http.Handler {
 		}
 
 		t := template.New("t")
-		t, err = t.Parse(Page)
+		t, err = t.Parse(page)
 		if err != nil {
 			log.Error(err)
 			http.Error(w, err.Error(), 500)
