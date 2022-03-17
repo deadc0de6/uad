@@ -11,7 +11,9 @@ web server allowing to upload and download files.
 # Usage
 
 ```bash
-Usage of ./uad:
+Usage: ./uad [<options>] [<work-directory>]
+  -debug
+    	Debug mode
   -help
     	Show usage
   -host string
@@ -22,8 +24,6 @@ Usage of ./uad:
     	Disable downloads
   -no-uploads
     	Disable uploads
-  -path string
-    	Files repository (download/upload) (default ".")
   -port int
     	Port to listen to (default 6969)
   -show-hidden

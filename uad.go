@@ -299,7 +299,7 @@ func startServer(param Param) error {
 func isValidDir(path string) error {
 	dir, err := os.Stat(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("path \"%s\" is not valid: %s", path, err.Error())
 	}
 
 	if !dir.IsDir() {
@@ -310,7 +310,7 @@ func isValidDir(path string) error {
 
 // print usage
 func usage() {
-	fmt.Fprintf(os.Stderr, "Usage: %s [<options>]\n", os.Args[0])
+	fmt.Fprintf(os.Stderr, "Usage: %s [<options>] [<work-directory>]\n", os.Args[0])
 	flag.PrintDefaults()
 }
 
@@ -330,6 +330,8 @@ func main() {
 
 	if len(flag.Args()) < 1 {
 		path = "."
+	} else {
+		path = flag.Args()[0]
 	}
 
 	if *debugArg {
