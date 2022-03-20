@@ -14,7 +14,7 @@ jobs:
       run: |
         docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag deadc0de6/uad:$(date +%s)
+      run: docker build . --file Dockerfile --tag deadc0de6/uad:latest
     - name: Docker push
       run: docker push ${{secrets.DOCKER_USER}}/uad
     - name: Docker tag latest
