@@ -1,4 +1,4 @@
-name: Docker Image CI
+name: publish docker image
 on:
   release:
     types: [created]
@@ -14,10 +14,6 @@ jobs:
       run: |
         docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag deadc0de6/uad:latest
+      run: docker build . --file Dockerfile --tag ${{secrets.DOCKER_USER}}/uad:latest
     - name: Docker push
-      run: docker push ${{secrets.DOCKER_USER}}/uad
-    - name: Docker tag latest
-      run: |
-        docker tag uad ${{secrets.DOCKER_USER}}/uad:latest
-        docker push ${{secrets.DOCKER_USER}}/uad:latest
+      run: docker push ${{secrets.DOCKER_USER}}/uad:latest
