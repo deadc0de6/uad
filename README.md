@@ -37,6 +37,18 @@ Usage: ./uad [<options>] [<work-directory>]
 Pick a release from [the release page](https://github.com/deadc0de6/uad/releases) and
 install it in your `$PATH` or [compile from source](#compile-from-source).
 
+## docker
+
+A docker image is availabe on [dockerhub](https://hub.docker.com/r/deadc0de6/uad).
+```bash
+docker run -d --name uad -p 6969:6969 -v /tmp/uad-files:/files deadc0de6/uad
+```
+
+You can also build the image yourself:
+```bash
+docker build -t uad .
+```
+
 ## Compile from source
 
 ```bash
