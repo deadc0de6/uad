@@ -118,7 +118,7 @@
       function preventDefaults (e) {
         e.preventDefault();
         e.stopPropagation();
-      }
+      };
 
       // handle highlighting
       ['dragenter', 'dragover'].forEach(eventName => {
@@ -131,11 +131,11 @@
 
       function highlight(e) {
         drophere.classList.add('highlight');
-      }
+      };
 
       function unhighlight(e) {
         drophere.classList.remove('highlight');
-      }
+      };
 
       // handle drops
       drophere.addEventListener('drop', handleDrop, false);
@@ -144,12 +144,13 @@
         let dt = e.dataTransfer;
         let files = dt.files;
         handleFiles(files);
-      }
+      };
 
       function handleFiles(files) {
         ([...files]).forEach(uploadFileProgress);
-      }
+      };
 
+      // handle form submit
       document.querySelector('form').addEventListener('submit', (e) => {
         e.preventDefault()
         const files = document.querySelector('[type=file]').files
@@ -157,8 +158,24 @@
           let file = files[i]
           uploadFileProgress(file)
         }
-      })
+      });
 
+      function progress(percent) {
+        var bar = document.getElementById("thebar");
+        bar.style.width = percent + "%";
+        var progr = document.getElementById("theprogress");
+
+        // hide bar if done
+        if (percent == 100) {
+          bar.style.display = "none";
+          progr.style.display = "none";
+        } else {
+          bar.style.display = "block"
+          progr.style.display = "block"
+        }
+      };
+
+      // file upload with progress
       function uploadFileProgress(file) {
         let request = new XMLHttpRequest();
         request.open("POST", "./upload");
@@ -174,21 +191,22 @@
           infolog("uploading: " + percent + "%");
         });
 
-        request.addEventListener('load', function(e) {
-          // hide bar
-          var bar = document.getElementById("thebar");
-          bar.style.display = "none";
-          // hide progress
-          var progr = document.getElementById("theprogress");
-          progr.style.display = "none";
-          // hide footer
-          infolog("")
+        // handle end of upload
+        request.addEventListener('loadend', function(e) {
           if (request.status == 200) {
-            // reload
+            // reload page
             location.reload();
-            oklog("file uploaded!");
           } else {
-            errlog("upload error: " + request.status + " - " + request.statusText);
+            // hide bar
+            var bar = document.getElementById("thebar");
+            bar.style.display = "none";
+            // hide progress
+            var progr = document.getElementById("theprogress");
+            progr.style.display = "none";
+            // show error
+            var txt = "upload error: " + request.status + " - " + request.statusText;
+            errlog(txt);
+            console.log(txt);
           }
         });
 
@@ -196,30 +214,7 @@
         data.append('file', file);
         console.log("uploading " + file);
         request.send(data);
-      }
-
-      async function uploadFile(file) {
-        let url = "./upload";
-        let formData = new FormData();
-
-        formData.append('file', file);
-
-        infolog("uploading ...");
-        try {
-          let r = await fetch(url, {
-            method: 'POST',
-            body: formData
-          });
-          if (r.ok) {
-            location.reload();
-            oklog("upload success!");
-          } else {
-            errlog("upload error: " + r.status);
-          }
-        } catch(e) {
-          errlog("upload error: " + e);
-        };
-      }
+      };
 
       function errlog(content) {
         var ft = document.getElementById("foot");
@@ -231,28 +226,13 @@
         var ft = document.getElementById("foot");
         ft.innerHTML = content;
         ft.style.color = "white";
-      }
+      };
 
       function oklog(content) {
         var ft = document.getElementById("foot");
         ft.innerHTML = content;
         ft.style.color = "green";
       };
-
-      function progress(percent) {
-        var bar = document.getElementById("thebar");
-        bar.style.width = percent + "%";
-        var progr = document.getElementById("theprogress");
-
-        // hide bar if done
-        if (percent == 100) {
-          bar.style.display = "none";
-          progr.style.display = "none";
-        } else {
-          bar.style.display = "block"
-          progr.style.display = "block"
-        }
-      }
     </script>
     <footer>
       <p id="foot"></p>
