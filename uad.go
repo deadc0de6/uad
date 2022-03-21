@@ -24,9 +24,9 @@ import (
 const (
 	fCreationRights = 0666
 	version         = "0.5.7"
-	fileWebPath     = "./files/"
-	title           = "uad"
-	uploadEndpoint  = "./upload"
+	// web endpoint for files
+	fileWebPath = "/files/"
+	title       = "uad"
 )
 
 var (
@@ -53,7 +53,6 @@ type TmplData struct {
 	Files           []HTMLFile
 	EnableUploads   bool
 	EnableDownloads bool
-	UploadEndpoint  string
 }
 
 // HTMLFile an uploaded file
@@ -130,7 +129,6 @@ func walker(base string, hfiles *[]HTMLFile, hiddenFiles bool) filepath.WalkFunc
 			log.Error(err)
 			return nil
 		}
-		wpath := filepath.Join(fileWebPath, rpath)
 
 		if !hiddenFiles {
 			if strings.HasPrefix(rpath, ".") {
@@ -138,6 +136,8 @@ func walker(base string, hfiles *[]HTMLFile, hiddenFiles bool) filepath.WalkFunc
 				return nil
 			}
 		}
+
+		wpath := "." + filepath.Join(fileWebPath, rpath)
 
 		hfile := HTMLFile{
 			Name:     name,
@@ -264,7 +264,6 @@ func viewHandler(param Param) http.Handler {
 			Files:           files,
 			EnableUploads:   param.EnableUploads,
 			EnableDownloads: param.EnableDownloads,
-			UploadEndpoint:  uploadEndpoint,
 		}
 		t.Execute(w, data)
 	}
@@ -277,15 +276,18 @@ func startServer(param Param) error {
 
 	// handle uploads
 	if param.EnableUploads {
-		http.Handle(uploadEndpoint, uploadHandler(param))
+		log.Debugf("endpoint /upload")
+		http.Handle("/upload", uploadHandler(param))
 	}
 
 	// handle main page
+	log.Debug("endpoint /")
 	http.Handle("/", viewHandler(param))
 
 	// handle downloads
 	if param.EnableDownloads {
 		fs := http.FileServer(http.Dir(param.Path))
+		log.Debugf("endpoint %s", fileWebPath)
 		http.Handle(fileWebPath, http.StripPrefix(fileWebPath, fs))
 	}
 
