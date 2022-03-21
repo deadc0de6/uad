@@ -24,8 +24,9 @@ import (
 const (
 	fCreationRights = 0666
 	version         = "0.5.7"
-	fileWebPath     = "/files/"
+	fileWebPath     = "./files/"
 	title           = "uad"
+	uploadEndpoint  = "./upload"
 )
 
 var (
@@ -52,6 +53,7 @@ type TmplData struct {
 	Files           []HTMLFile
 	EnableUploads   bool
 	EnableDownloads bool
+	UploadEndpoint  string
 }
 
 // HTMLFile an uploaded file
@@ -261,6 +263,7 @@ func viewHandler(param Param) http.Handler {
 			Files:           files,
 			EnableUploads:   param.EnableUploads,
 			EnableDownloads: param.EnableDownloads,
+			UploadEndpoint:  uploadEndpoint,
 		}
 		t.Execute(w, data)
 	}
@@ -273,7 +276,7 @@ func startServer(param Param) error {
 
 	// handle uploads
 	if param.EnableUploads {
-		http.Handle("/upload", uploadHandler(param))
+		http.Handle(uploadEndpoint, uploadHandler(param))
 	}
 
 	// handle main page

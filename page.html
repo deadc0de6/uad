@@ -77,7 +77,6 @@
   <body>
     {{ if .EnableUploads }}
     <div id="drophere">
-      <!--<form enctype="multipart/form-data" action="/upload" method="post"">-->
       <form enctype="multipart/form-data" method="post" >
         <input type="file" name="files[]" multiple />
         <input type="submit" value="upload" name="submit" />
@@ -95,7 +94,7 @@
         </tr>
         {{range .Files}}
         <tr>
-          <td class="wide"><a href=".{{.WPath}}">{{.RPath}}</a></td>
+          <td class="wide"><a href="{{.WPath}}">{{.RPath}}</a></td>
           <td>{{.Size}}</td>
           <td>{{.Modified}}</td>
         </tr>
@@ -163,7 +162,7 @@
 
       function uploadFileProgress(file) {
         let request = new XMLHttpRequest();
-        request.open('POST', './upload');
+              request.open('POST', '{{ .UploadEndpoint }}');
 
         // progress event
         request.upload.addEventListener('progress', function(e) {
@@ -201,7 +200,7 @@
       }
 
       async function uploadFile(file) {
-        let url = './upload';
+        let url = '{{ .UploadEndpoint }}';
         let formData = new FormData();
 
         formData.append('file', file);
