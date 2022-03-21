@@ -133,7 +133,8 @@ func walker(base string, hfiles *[]HTMLFile, hiddenFiles bool) filepath.WalkFunc
 		wpath := filepath.Join(fileWebPath, rpath)
 
 		if !hiddenFiles {
-			if strings.HasPrefix(fpath, ".") {
+			if strings.HasPrefix(rpath, ".") {
+				log.Debugf("skipping hidden file: %s", rpath)
 				return nil
 			}
 		}
@@ -284,8 +285,6 @@ func startServer(param Param) error {
 
 	// handle downloads
 	if param.EnableDownloads {
-		log.Info(param.Path)
-		log.Info(fileWebPath)
 		fs := http.FileServer(http.Dir(param.Path))
 		http.Handle(fileWebPath, http.StripPrefix(fileWebPath, fs))
 	}
@@ -339,6 +338,7 @@ func main() {
 
 	if *debugArg {
 		log.SetLevel(log.DebugLevel)
+		log.Info("debug mode enabled")
 	}
 
 	if *helpArg {
