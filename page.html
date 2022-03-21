@@ -95,7 +95,7 @@
         </tr>
         {{range .Files}}
         <tr>
-          <td class="wide"><a href="{{.WPath}}">{{.RPath}}</a></td>
+          <td class="wide"><a href=".{{.WPath}}">{{.RPath}}</a></td>
           <td>{{.Size}}</td>
           <td>{{.Modified}}</td>
         </tr>
@@ -163,7 +163,7 @@
 
       function uploadFileProgress(file) {
         let request = new XMLHttpRequest();
-        request.open('POST', '/upload');
+        request.open('POST', './upload');
 
         // progress event
         request.upload.addEventListener('progress', function(e) {
@@ -201,7 +201,7 @@
       }
 
       async function uploadFile(file) {
-        let url = '/upload';
+        let url = './upload';
         let formData = new FormData();
 
         formData.append('file', file);
