@@ -37,7 +37,7 @@ Usage: ./uad [<options>] [<work-directory>]
 Pick a release from [the release page](https://github.com/deadc0de6/uad/releases) and
 install it in your `$PATH` or [compile from source](#compile-from-source).
 
-## docker
+## Docker
 
 A docker image is availabe on [dockerhub](https://hub.docker.com/r/deadc0de6/uad).
 ```bash
@@ -47,6 +47,26 @@ docker run -d --name uad -p 6969:6969 -v /tmp/uad-files:/files deadc0de6/uad
 You can also build the image yourself:
 ```bash
 docker build -t uad .
+```
+
+## Reverse proxy
+
+nginx
+```
+	location /uad/ {
+	  proxy_set_header Host $host;
+	  proxy_set_header X-Forwarded-Scheme $scheme;
+	  proxy_set_header X-Forwarded-Proto  $scheme;
+	  proxy_set_header X-Forwarded-For    $remote_addr;
+	  proxy_set_header X-Real-IP          $remote_addr;
+	  proxy_pass       http://127.0.0.1:6969/;
+	}
+```
+
+If you want to limit the uploads on the reverse proxy,
+add the following to your proxy block (for example for a 100M limit):
+```
+client_max_body_size 100M;
 ```
 
 ## Compile from source
