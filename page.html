@@ -102,11 +102,6 @@
       {{ end }}
     </div>
     {{ end }}
-    <!--
-    <div>
-      <a href="/files/">Uploaded files</a>
-    </div>
-    -->
     <script>
       let drophere = document.getElementById('drophere');
 
@@ -216,18 +211,21 @@
         request.send(data);
       };
 
+      // display error
       function errlog(content) {
         var ft = document.getElementById("foot");
         ft.innerHTML = content;
         ft.style.color = "#c33";
       };
 
+      // display info
       function infolog(content) {
         var ft = document.getElementById("foot");
         ft.innerHTML = content;
         ft.style.color = "white";
       };
 
+      // display success
       function oklog(content) {
         var ft = document.getElementById("foot");
         ft.innerHTML = content;
