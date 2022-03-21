@@ -168,7 +168,7 @@ func getFiles(path string, hidden bool) ([]HTMLFile, error) {
 func saveFile(file io.Reader, name string, dstdir string) error {
 	mkdirp(dstdir)
 	dst := filepath.Join(dstdir, name)
-	fmt.Printf("saving file to \"%s\" ...\n", dst)
+	fmt.Printf("saving file to \"%s\"\n", dst)
 	dstf, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE, fCreationRights)
 	if err != nil {
 		return err
