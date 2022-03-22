@@ -82,26 +82,16 @@
       </form>
     </div>
     {{ end }}
-    {{ if .EnableDownloads }}
     <div>
-      {{ if .Files }}
       <table class="center">
         <tr>
           <th>Name</th>
           <th>Size</th>
           <th>Last modified</th>
         </tr>
-        {{range .Files}}
-        <tr>
-          <td class="wide"><a href="{{.WPath}}">{{.RPath}}</a></td>
-          <td>{{.Size}}</td>
-          <td>{{.Modified}}</td>
-        </tr>
-        {{end}}
+        <tbody id="tablebody"></tbody>
       </table>
-      {{ end }}
     </div>
-    {{ end }}
     <script>
       let drophere = document.getElementById('drophere');
 
@@ -132,7 +122,7 @@
         drophere.classList.remove('highlight');
       };
 
-      // handle drops
+      // handle when files are dropped
       drophere.addEventListener('drop', handleDrop, false);
 
       function handleDrop(e) {
@@ -145,13 +135,13 @@
         ([...files]).forEach(uploadFileProgress);
       };
 
-      // handle form submit
+      // handle when files are submitted through the form
       document.querySelector('form').addEventListener('submit', (e) => {
-        e.preventDefault()
-        const files = document.querySelector('[type=file]').files
+        e.preventDefault();
+        const files = document.querySelector('[type=file]').files;
         for (let i = 0; i < files.length; i++) {
-          let file = files[i]
-          uploadFileProgress(file)
+          let file = files[i];
+          uploadFileProgress(file);
         }
       });
 
@@ -165,8 +155,8 @@
           bar.style.display = "none";
           progr.style.display = "none";
         } else {
-          bar.style.display = "block"
-          progr.style.display = "block"
+          bar.style.display = "block";
+          progr.style.display = "block";
         }
       };
 
@@ -182,22 +172,26 @@
           if (percent >= 99) {
             percent = 99;
           }
-          progress(percent)
+          progress(percent);
           infolog("uploading: " + percent + "%");
         });
 
         // handle end of upload
         request.addEventListener('loadend', function(e) {
+          // hide bar
+          var bar = document.getElementById("thebar");
+          bar.style.display = "none";
+          // hide progress
+          var progr = document.getElementById("theprogress");
+          progr.style.display = "none";
           if (request.status == 200) {
-            // reload page
-            location.reload();
+            var txt = file.name + " successfully uploaded";
+            // reload files
+            getFiles();
+            // show success
+            infolog(txt);
+            console.log(txt);
           } else {
-            // hide bar
-            var bar = document.getElementById("thebar");
-            bar.style.display = "none";
-            // hide progress
-            var progr = document.getElementById("theprogress");
-            progr.style.display = "none";
             // show error
             var txt = "upload error: " + request.status + " - " + request.statusText;
             errlog(txt);
@@ -211,11 +205,49 @@
         request.send(data);
       };
 
+      // fill files from backend
+      window.addEventListener('load', getFiles());
+      function getFiles() {
+        var url = "./api/files"
+        fetch(url)
+        .then(function(response){
+          return response.json();
+        })
+        .then(function(data){
+          console.log(data);
+          const table = document.getElementById("tablebody");
+          // clear table
+          table.innerHTML = "";
+          data.forEach(item => {
+            let row = table.insertRow();
+
+            //
+            var cell = row.insertCell(0);
+            let wpath = item.wpath;
+            let rpath = item.rpath;
+            {{ if .EnableDownloads }}
+            var xml = `<td class="wide"><a href="${wpath}">${rpath}</a></td>`;
+            {{ else }}
+            var xml = `${rpath}`;
+            {{ end }}
+            cell.innerHTML = xml;
+
+            // size
+            var cell = row.insertCell(1);
+            cell.innerHTML = item.size;
+
+            // modified
+            var cell = row.insertCell(1);
+            cell.innerHTML = item.modified;
+          });
+        })
+      };
+
       // display error
       function errlog(content) {
         var ft = document.getElementById("foot");
         ft.innerHTML = content;
-        ft.style.color = "#c33";
+        ft.style.color = "red";
       };
 
       // display info
@@ -223,13 +255,6 @@
         var ft = document.getElementById("foot");
         ft.innerHTML = content;
         ft.style.color = "white";
-      };
-
-      // display success
-      function oklog(content) {
-        var ft = document.getElementById("foot");
-        ft.innerHTML = content;
-        ft.style.color = "green";
       };
     </script>
     <footer>

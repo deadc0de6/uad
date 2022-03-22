@@ -7,6 +7,7 @@ package main
 
 import (
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -50,26 +51,36 @@ type Param struct {
 // TmplData template parameters
 type TmplData struct {
 	Title           string
-	Files           []HTMLFile
 	EnableUploads   bool
 	EnableDownloads bool
 }
 
 // HTMLFile an uploaded file
 type HTMLFile struct {
-	Name     string
-	Size     string
-	Modified string
+	Name     string `json:"name"`
+	Size     string `json:"size"`
+	Modified string `json:"modified"`
 	// WPath web path
-	WPath string
-	// APath absolute path on filesystem
-	APath string
+	WPath string `json:"wpath"`
 	// RPath relative path on filesystem
-	RPath string
+	RPath string `json:"rpath"`
 }
 
-// SizeToHuman return size in human readable format
-func SizeToHuman(bytes int64) string {
+// is path a valid directory
+func isValidDir(path string) error {
+	dir, err := os.Stat(path)
+	if err != nil {
+		return fmt.Errorf("path \"%s\" is not valid: %s", path, err.Error())
+	}
+
+	if !dir.IsDir() {
+		return fmt.Errorf("%s is not a valid directory", path)
+	}
+	return nil
+}
+
+// return size in human readable format
+func sizeToHuman(bytes int64) string {
 	size := bytes
 	rest := int64(0)
 	for _, unit := range units {
@@ -82,8 +93,8 @@ func SizeToHuman(bytes int64) string {
 	return "??"
 }
 
-// HumanToSize return human size in bytes
-func HumanToSize(size string) (int64, error) {
+// return human size in bytes
+func humanToSize(size string) (int64, error) {
 	unit := string(size[len(size)-1])
 	sz := string(size[:len(size)-1])
 
@@ -107,12 +118,11 @@ func HumanToSize(size string) (int64, error) {
 	default:
 		return int64(0), errors.New("bad size unit")
 	}
-
 	return int64(n * mult), nil
 }
 
 // walk a directory and return HTMLFiles list
-func walker(base string, hfiles *[]HTMLFile, hiddenFiles bool) filepath.WalkFunc {
+func walker(base string, hfiles *[]*HTMLFile, hiddenFiles bool) filepath.WalkFunc {
 	return func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			log.Error(err)
@@ -123,7 +133,6 @@ func walker(base string, hfiles *[]HTMLFile, hiddenFiles bool) filepath.WalkFunc
 		}
 
 		name := info.Name()
-		fpath := path
 		rpath, err := filepath.Rel(base, path)
 		if err != nil {
 			log.Error(err)
@@ -132,19 +141,18 @@ func walker(base string, hfiles *[]HTMLFile, hiddenFiles bool) filepath.WalkFunc
 
 		if !hiddenFiles {
 			if strings.HasPrefix(rpath, ".") {
-				log.Debugf("skipping hidden file: %s", rpath)
+				//log.Debugf("skipping hidden file: %s", rpath)
 				return nil
 			}
 		}
 
-		wpath := "." + filepath.Join(fileWebPath, rpath)
+		wpath := filepath.Join(fileWebPath, rpath)
 
-		hfile := HTMLFile{
+		hfile := &HTMLFile{
 			Name:     name,
-			Size:     SizeToHuman(info.Size()),
+			Size:     sizeToHuman(info.Size()),
 			Modified: info.ModTime().Format("2006-01-02 15:04:05"),
 			WPath:    wpath,
-			APath:    fpath,
 			RPath:    rpath,
 		}
 		log.Debugf("%#v", hfile)
@@ -155,8 +163,8 @@ func walker(base string, hfiles *[]HTMLFile, hiddenFiles bool) filepath.WalkFunc
 }
 
 // get list of files in upload dir
-func getFiles(path string, hidden bool) ([]HTMLFile, error) {
-	var hfiles []HTMLFile
+func getFiles(path string, hidden bool) ([]*HTMLFile, error) {
+	var hfiles []*HTMLFile
 	err := filepath.Walk(path, walker(path, &hfiles, hidden))
 	if err != nil {
 		return nil, err
@@ -187,8 +195,8 @@ func mkdirp(path string) {
 }
 
 // handle /upload endpoint
-func uploadHandler(param Param) http.Handler {
-	fn := func(w http.ResponseWriter, r *http.Request) {
+func uploadHandler(param *Param) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
 			http.NotFound(w, r)
 			return
@@ -229,30 +237,48 @@ func uploadHandler(param Param) http.Handler {
 		// redirect to main page
 		http.Redirect(w, r, r.Header.Get("Referer"), http.StatusFound)
 	}
-	return http.HandlerFunc(fn)
+}
+
+// handle /api/files
+func apiListFiles(param *Param) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			http.NotFound(w, r)
+			return
+		}
+		files, err := getFiles(param.Path, param.HiddenFiles)
+		if err != nil {
+			log.Error(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		data, err := json.Marshal(files)
+		if err != nil {
+			log.Error(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(data)
+	}
 }
 
 // handle / endpoint
-func viewHandler(param Param) http.Handler {
-	fn := func(w http.ResponseWriter, r *http.Request) {
-		var err error
-		log.Debug("access to /")
+func viewHandler(param *Param) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+		log.Debugf("access to /")
 		if r.Method != "GET" {
 			http.NotFound(w, r)
 			return
 		}
 
-		var files []HTMLFile
-		if param.EnableDownloads {
-			files, err = getFiles(param.Path, param.HiddenFiles)
-			if err != nil {
-				log.Error(err)
-				return
-			}
-		}
-
+		// build page
 		t := template.New("t")
-		t, err = t.Parse(page)
+		t, err := t.Parse(page)
 		if err != nil {
 			log.Error(err)
 			http.Error(w, err.Error(), 500)
@@ -261,35 +287,35 @@ func viewHandler(param Param) http.Handler {
 
 		data := TmplData{
 			Title:           title,
-			Files:           files,
 			EnableUploads:   param.EnableUploads,
 			EnableDownloads: param.EnableDownloads,
 		}
 		t.Execute(w, data)
 	}
-	return http.HandlerFunc(fn)
 }
 
 // setup and start http server
-func startServer(param Param) error {
+func startServer(param *Param) error {
 	addr := fmt.Sprintf("%s:%d", param.Host, param.Port)
+
+	// handle main page
+	http.HandleFunc("/", viewHandler(param))
 
 	// handle uploads
 	if param.EnableUploads {
-		log.Debugf("endpoint /upload")
-		http.Handle("/upload", uploadHandler(param))
+		http.HandleFunc("/upload", uploadHandler(param))
+		http.HandleFunc("/upload/", uploadHandler(param))
 	}
-
-	// handle main page
-	log.Debug("endpoint /")
-	http.Handle("/", viewHandler(param))
 
 	// handle downloads
 	if param.EnableDownloads {
 		fs := http.FileServer(http.Dir(param.Path))
-		log.Debugf("endpoint %s", fileWebPath)
 		http.Handle(fileWebPath, http.StripPrefix(fileWebPath, fs))
 	}
+
+	// API file listing endpoint
+	http.HandleFunc("/api/files", apiListFiles(param))
+	http.HandleFunc("/api/files/", apiListFiles(param))
 
 	// start the server
 	fmt.Printf("listening on \"%s\"\n", addr)
@@ -300,24 +326,13 @@ func startServer(param Param) error {
 	return nil
 }
 
-func isValidDir(path string) error {
-	dir, err := os.Stat(path)
-	if err != nil {
-		return fmt.Errorf("path \"%s\" is not valid: %s", path, err.Error())
-	}
-
-	if !dir.IsDir() {
-		return fmt.Errorf("%s is not a valid directory", path)
-	}
-	return nil
-}
-
 // print usage
 func usage() {
 	fmt.Fprintf(os.Stderr, "Usage: %s [<options>] [<work-directory>]\n", os.Args[0])
 	flag.PrintDefaults()
 }
 
+// entry point
 func main() {
 	var path string
 
@@ -363,13 +378,13 @@ func main() {
 		log.Fatal(err)
 	}
 
-	MaxUploadSize, err := HumanToSize(*maxUploadSizeArg)
+	MaxUploadSize, err := humanToSize(*maxUploadSizeArg)
 	if err != nil {
 		log.Error(err)
 		os.Exit(1)
 	}
 
-	param := Param{
+	param := &Param{
 		Host:            *hostArg,
 		Port:            *portArg,
 		Path:            path,
@@ -378,12 +393,13 @@ func main() {
 		MaxUploadSize:   MaxUploadSize,
 		HiddenFiles:     *hiddenArg,
 	}
+	log.Debugf("%#v", param)
 
 	fmt.Printf("- path: \"%s\"\n", param.Path)
 	fmt.Printf("- download enabled: %v\n", param.EnableDownloads)
 	fmt.Printf("- upload enabled: %v\n", param.EnableUploads)
 	if param.EnableUploads {
-		fmt.Printf("- upload max size: %v\n", SizeToHuman(param.MaxUploadSize))
+		fmt.Printf("- upload max size: %v\n", sizeToHuman(param.MaxUploadSize))
 	}
 	fmt.Printf("- show hidden files: %v\n", param.HiddenFiles)
 
