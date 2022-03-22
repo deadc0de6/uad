@@ -145,6 +145,7 @@
         }
       });
 
+      // show progress
       function progress(percent) {
         var bar = document.getElementById("thebar");
         bar.style.width = percent + "%";
@@ -201,7 +202,7 @@
 
         let data = new FormData();
         data.append('file', file);
-        console.log("uploading " + file);
+        console.log("uploading " + file.name);
         request.send(data);
       };
 
@@ -218,10 +219,11 @@
           const table = document.getElementById("tablebody");
           // clear table
           table.innerHTML = "";
+          // fill table
           data.forEach(item => {
             let row = table.insertRow();
 
-            //
+            // path
             var cell = row.insertCell(0);
             let wpath = item.wpath;
             let rpath = item.rpath;
