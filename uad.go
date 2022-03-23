@@ -11,13 +11,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"html/template"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"text/template"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -26,8 +26,10 @@ const (
 	fCreationRights = 0666
 	version         = "0.5.7"
 	// web endpoint for files
-	fileWebPath = "/files/"
-	title       = "uad"
+	downloadPath = "files/"
+	// web endpoint for upload
+	uploadPath = "upload/"
+	title      = "uad"
 )
 
 var (
@@ -41,7 +43,9 @@ var (
 type Param struct {
 	Host            string
 	Port            int
-	Path            string
+	FilePath        string
+	DlPath          string
+	UpPath          string
 	MaxUploadSize   int64
 	EnableUploads   bool
 	EnableDownloads bool
@@ -51,6 +55,7 @@ type Param struct {
 // TmplData template parameters
 type TmplData struct {
 	Title           string
+	UploadPath      string
 	EnableUploads   bool
 	EnableDownloads bool
 }
@@ -122,7 +127,7 @@ func humanToSize(size string) (int64, error) {
 }
 
 // walk a directory and return HTMLFiles list
-func walker(base string, hfiles *[]*HTMLFile, hiddenFiles bool) filepath.WalkFunc {
+func walker(base string, webBase string, hfiles *[]*HTMLFile, hiddenFiles bool) filepath.WalkFunc {
 	return func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			log.Error(err)
@@ -146,8 +151,7 @@ func walker(base string, hfiles *[]*HTMLFile, hiddenFiles bool) filepath.WalkFun
 			}
 		}
 
-		wpath := filepath.Join(fileWebPath, rpath)
-
+		wpath := filepath.Join(webBase, rpath)
 		hfile := &HTMLFile{
 			Name:     name,
 			Size:     sizeToHuman(info.Size()),
@@ -163,9 +167,9 @@ func walker(base string, hfiles *[]*HTMLFile, hiddenFiles bool) filepath.WalkFun
 }
 
 // get list of files in upload dir
-func getFiles(path string, hidden bool) ([]*HTMLFile, error) {
+func getFiles(path string, webPath string, hidden bool) ([]*HTMLFile, error) {
 	var hfiles []*HTMLFile
-	err := filepath.Walk(path, walker(path, &hfiles, hidden))
+	err := filepath.Walk(path, walker(path, webPath, &hfiles, hidden))
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +231,7 @@ func uploadHandler(param *Param) func(http.ResponseWriter, *http.Request) {
 		defer file.Close()
 
 		name := fhandler.Filename
-		err = saveFile(file, name, param.Path)
+		err = saveFile(file, name, param.FilePath)
 		if err != nil {
 			log.Error(err)
 			http.Error(w, err.Error(), 500)
@@ -246,7 +250,7 @@ func apiListFiles(param *Param) func(http.ResponseWriter, *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
-		files, err := getFiles(param.Path, param.HiddenFiles)
+		files, err := getFiles(param.FilePath, param.DlPath, param.HiddenFiles)
 		if err != nil {
 			log.Error(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -287,6 +291,7 @@ func viewHandler(param *Param) func(http.ResponseWriter, *http.Request) {
 
 		data := TmplData{
 			Title:           title,
+			UploadPath:      uploadPath,
 			EnableUploads:   param.EnableUploads,
 			EnableDownloads: param.EnableDownloads,
 		}
@@ -309,8 +314,11 @@ func startServer(param *Param) error {
 
 	// handle downloads
 	if param.EnableDownloads {
-		fs := http.FileServer(http.Dir(param.Path))
-		http.Handle(fileWebPath, http.StripPrefix(fileWebPath, fs))
+		log.Debugf("serve files from %s under %s", param.FilePath, param.DlPath)
+		fs := http.FileServer(http.Dir(param.FilePath))
+		//http.Handle(param.DlPath, http.StripPrefix(param.DlPath, fs))
+		http.Handle("/files/", http.StripPrefix("/files/", fs))
+		http.Handle("/files", http.StripPrefix("/files", fs))
 	}
 
 	// API file listing endpoint
@@ -334,7 +342,7 @@ func usage() {
 
 // entry point
 func main() {
-	var path string
+	var filePath string
 
 	hostArg := flag.String("host", "", "Host to listen to")
 	portArg := flag.Int("port", 6969, "Port to listen to")
@@ -348,9 +356,9 @@ func main() {
 	flag.Parse()
 
 	if len(flag.Args()) < 1 {
-		path = "."
+		filePath = "."
 	} else {
-		path = flag.Args()[0]
+		filePath = flag.Args()[0]
 	}
 
 	if *debugArg {
@@ -369,11 +377,11 @@ func main() {
 	}
 
 	// validate paths
-	err := isValidDir(path)
+	err := isValidDir(filePath)
 	if err != nil {
 		log.Fatal(err)
 	}
-	path, err = filepath.Abs(path)
+	filePath, err = filepath.Abs(filePath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -384,10 +392,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	// parameters
 	param := &Param{
 		Host:            *hostArg,
 		Port:            *portArg,
-		Path:            path,
+		FilePath:        filePath,
+		DlPath:          downloadPath,
+		UpPath:          uploadPath,
 		EnableUploads:   !*upArg,
 		EnableDownloads: !*downArg,
 		MaxUploadSize:   MaxUploadSize,
@@ -395,8 +406,10 @@ func main() {
 	}
 	log.Debugf("%#v", param)
 
-	fmt.Printf("- path: \"%s\"\n", param.Path)
+	fmt.Printf("- path: \"%s\"\n", param.FilePath)
+	fmt.Printf("- download path: %s\n", param.DlPath)
 	fmt.Printf("- download enabled: %v\n", param.EnableDownloads)
+	fmt.Printf("- upload path: %s\n", param.UpPath)
 	fmt.Printf("- upload enabled: %v\n", param.EnableUploads)
 	if param.EnableUploads {
 		fmt.Printf("- upload max size: %v\n", sizeToHuman(param.MaxUploadSize))
