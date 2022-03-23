@@ -316,7 +316,6 @@ func startServer(param *Param) error {
 	if param.EnableDownloads {
 		log.Debugf("serve files from %s under %s", param.FilePath, param.DlPath)
 		fs := http.FileServer(http.Dir(param.FilePath))
-		//http.Handle(param.DlPath, http.StripPrefix(param.DlPath, fs))
 		http.Handle("/files/", http.StripPrefix("/files/", fs))
 		http.Handle("/files", http.StripPrefix("/files", fs))
 	}
