@@ -164,7 +164,8 @@
       // file upload with progress
       function uploadFileProgress(file) {
         let request = new XMLHttpRequest();
-        request.open("POST", "./upload");
+        let path = "{{ .UploadPath }}";
+        request.open("POST", path);
 
         // progress event
         request.upload.addEventListener('progress', function(e) {
@@ -215,7 +216,6 @@
           return response.json();
         })
         .then(function(data){
-          console.log(data);
           const table = document.getElementById("tablebody");
           // clear table
           table.innerHTML = "";
