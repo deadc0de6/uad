@@ -51,21 +51,24 @@ docker build -t uad .
 
 ## Reverse proxy
 
-nginx for a subpath
+nginx for a sub domain
+```
+location / {
+  client_max_body_size 1G;
+  proxy_pass       http://127.0.0.1:6969/;
+}
+```
+
+nginx for a subpath at `/uad/` for example
 ```
 location /uad/ {
-  proxy_set_header Host $host;
-  proxy_set_header X-Forwarded-Scheme $scheme;
-  proxy_set_header X-Forwarded-Proto  $scheme;
-  proxy_set_header X-Forwarded-For    $remote_addr;
-  proxy_set_header X-Real-IP          $remote_addr;
   client_max_body_size 1G;
   proxy_pass       http://127.0.0.1:6969/;
 }
 ```
 
 If you specified a different `-max-upload` than the default (`1G`),
-you need to adapt the  `client_max_body_size`.
+you need to adapt the `client_max_body_size`.
 
 ## Compile from source
 
