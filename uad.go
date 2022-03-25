@@ -55,6 +55,7 @@ type Param struct {
 // TmplData template parameters
 type TmplData struct {
 	Title           string
+	Version         string
 	UploadPath      string
 	EnableUploads   bool
 	EnableDownloads bool
@@ -291,6 +292,7 @@ func viewHandler(param *Param) func(http.ResponseWriter, *http.Request) {
 
 		data := TmplData{
 			Title:           title,
+			Version:         version,
 			UploadPath:      uploadPath,
 			EnableUploads:   param.EnableUploads,
 			EnableDownloads: param.EnableDownloads,
