@@ -5,8 +5,10 @@
 
 # uad
 
-[uad](https://github.com/deadc0de6/uad) (**u**pload **a**nd **d**ownload) is a very tiny
-web server allowing to upload and download files.
+[uad](https://github.com/deadc0de6/uad) (**u**pload **a**nd **d**ownload)
+is a very tiny web server allowing to upload and download files.
+
+![](/screenshots/uad.png?raw=true "uad")
 
 # Usage
 
@@ -34,22 +36,25 @@ Usage: ./uad [<options>] [<work-directory>]
 
 # Install
 
-Pick a release from [the release page](https://github.com/deadc0de6/uad/releases) and
-install it in your `$PATH` or [compile from source](#compile-from-source).
+Quick start:
+```bash
+go install -v github.com/deadc0de6/uad@v0.6.3
+uad
+```
 
-## Docker
+Or pick a release from
+[the release page](https://github.com/deadc0de6/uad/releases) and
+install it in your `$PATH`.
 
-A docker image is availabe on [dockerhub](https://hub.docker.com/r/deadc0de6/uad).
+Or [compile it from source](#compile-from-source).
+
+Or use the docker image availabe on
+[dockerhub](https://hub.docker.com/r/deadc0de6/uad).
 ```bash
 docker run -d --name uad -p 6969:6969 -v /tmp/uad-files:/files deadc0de6/uad
 ```
 
-You can also build the image yourself:
-```bash
-docker build -t uad .
-```
-
-## Reverse proxy
+# Reverse proxy
 
 nginx for a sub domain
 ```
@@ -77,10 +82,6 @@ $ go mod tidy
 $ make
 $ ./uad -help
 ```
-
-# Screenshot
-
-![](/screenshots/uad.png?raw=true "uad")
 
 # Contribution
 
