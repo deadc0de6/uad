@@ -1,4 +1,4 @@
-module uad
+module github.com/deadc0de6/uad
 
 go 1.16
 
