@@ -407,6 +407,7 @@ func main() {
 	}
 	log.Debugf("%#v", param)
 
+	fmt.Printf("- version: %s\n", version)
 	fmt.Printf("- path: \"%s\"\n", param.FilePath)
 	fmt.Printf("- download path: %s\n", param.DlPath)
 	fmt.Printf("- download enabled: %v\n", param.EnableDownloads)
