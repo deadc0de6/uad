@@ -38,21 +38,22 @@ Usage: ./uad [<options>] [<work-directory>]
 
 Quick start:
 ```bash
-go install -v github.com/deadc0de6/uad@v0.6.3
+## You need at least golang 1.16
+go install -v github.com/deadc0de6/uad@latest
 uad
 ```
 
 Or pick a release from
 [the release page](https://github.com/deadc0de6/uad/releases) and
-install it in your `$PATH`.
-
-Or [compile it from source](#compile-from-source).
+install it in your `$PATH`
 
 Or use the docker image availabe on
-[dockerhub](https://hub.docker.com/r/deadc0de6/uad).
+[dockerhub](https://hub.docker.com/r/deadc0de6/uad)
 ```bash
 docker run -d --name uad -p 6969:6969 -v /tmp/uad-files:/files deadc0de6/uad
 ```
+
+Or [compile it from source](#compile-from-source)
 
 # Reverse proxy
 
