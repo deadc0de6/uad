@@ -18,7 +18,9 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+	"time"
 
+	"github.com/briandowns/spinner"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -134,6 +136,8 @@ func walker(base string, webBase string, hfiles *[]*HTMLFile, hiddenFiles bool) 
 			log.Error(err)
 			return nil
 		}
+
+		log.Debugf("found \"%s\" (dir:%v): %#v", path, info.IsDir(), info)
 		if info.IsDir() {
 			return nil
 		}
@@ -144,10 +148,11 @@ func walker(base string, webBase string, hfiles *[]*HTMLFile, hiddenFiles bool) 
 			log.Error(err)
 			return nil
 		}
+		log.Debugf("base:\"%s\" path:\"%s\" -> \"%s\"", base, path, rpath)
 
 		if !hiddenFiles {
 			if strings.HasPrefix(rpath, ".") {
-				//log.Debugf("skipping hidden file: %s", rpath)
+				log.Debugf("skipping hidden file: %s", rpath)
 				return nil
 			}
 		}
@@ -160,7 +165,7 @@ func walker(base string, webBase string, hfiles *[]*HTMLFile, hiddenFiles bool) 
 			WPath:    wpath,
 			RPath:    rpath,
 		}
-		log.Debugf("%#v", hfile)
+		log.Debugf("new file: %#v", hfile)
 
 		*hfiles = append(*hfiles, hfile)
 		return nil
@@ -170,6 +175,7 @@ func walker(base string, webBase string, hfiles *[]*HTMLFile, hiddenFiles bool) 
 // get list of files in upload dir
 func getFiles(path string, webPath string, hidden bool) ([]*HTMLFile, error) {
 	var hfiles []*HTMLFile
+	log.Debugf("walking \"%s\"...", path)
 	err := filepath.Walk(path, walker(path, webPath, &hfiles, hidden))
 	if err != nil {
 		return nil, err
@@ -251,6 +257,14 @@ func apiListFiles(param *Param) func(http.ResponseWriter, *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
+
+		// start spinner
+		s := spinner.New(spinner.CharSets[12], 100*time.Millisecond)
+		s.Start()
+		time.Sleep(4 * time.Second)
+		defer s.Stop()
+
+		// get the files
 		files, err := getFiles(param.FilePath, param.DlPath, param.HiddenFiles)
 		if err != nil {
 			log.Error(err)
@@ -335,6 +349,34 @@ func startServer(param *Param) error {
 	return nil
 }
 
+// resolves a symlink
+func resolveSymlink(path string) string {
+	info, err := os.Lstat(path)
+	if err != nil {
+		log.Error(err)
+		return path
+	}
+	if info.Mode()&os.ModeSymlink != os.ModeSymlink {
+		return path
+	}
+	log.Debugf("\"%s\" is a symlink", path)
+	origin, err := filepath.EvalSymlinks(path)
+	//origin, err := os.Readlink(path)
+	if err != nil {
+		log.Error(err)
+		return path
+	}
+	return origin
+}
+
+// normalize path
+func normPath(path string) (string, error) {
+	var err error
+	path = resolveSymlink(path)
+	path, err = filepath.Abs(path)
+	return path, err
+}
+
 // print usage
 func usage() {
 	fmt.Fprintf(os.Stderr, "Usage: %s [<options>] [<work-directory>]\n", os.Args[0])
@@ -382,7 +424,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	filePath, err = filepath.Abs(filePath)
+
+	filePath, err = normPath(filePath)
 	if err != nil {
 		log.Fatal(err)
 	}
