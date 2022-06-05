@@ -26,7 +26,7 @@ import (
 
 const (
 	fCreationRights = 0666
-	version         = "0.7.0"
+	version         = "0.7.1"
 	// web endpoint for files
 	downloadPath = "files/"
 	// web endpoint for upload
