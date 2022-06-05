@@ -70,6 +70,23 @@
         background-color: #2c87f0;
         display: none;
       }
+
+      #spinner {
+        border: 10px solid #f3f3f3;
+        border-top: 10px solid #2c87f0;
+        border-radius: 50%;
+        margin-top: 10px;
+        width: 15px;
+        height: 15px;
+        animation: spin 2s linear infinite;
+        left: 49%;
+        position: relative;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
     </style>
     <title>{{ .Title }}</title>
   </head>
@@ -92,8 +109,19 @@
         <tbody id="tablebody"></tbody>
       </table>
     </div>
+    <div id="spinner"></div>
+
     <script>
       let drophere = document.getElementById('drophere');
+      const spinner = document.getElementById('spinner');
+
+      function hideSpinner() {
+        spinner.style.visibility = 'hidden';
+      }
+
+      function showSpinner() {
+        spinner.style.visibility = 'visible';
+      }
 
       // prevent browser from displaying the file itself
       ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -210,9 +238,13 @@
       // fill files from backend
       window.addEventListener('load', getFiles());
       function getFiles() {
-        var url = "./api/files"
+        console.log('to spin...')
+        showSpinner();
+        console.log('spinning...')
+        var url = "./api/files";
         fetch(url)
         .then(function(response){
+          hideSpinner();
           return response.json();
         })
         .then(function(data){
