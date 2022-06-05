@@ -12,6 +12,7 @@ jobs:
         run: |
           go install golang.org/x/lint/golint@latest
           go install honnef.co/go/tools/cmd/staticcheck@latest
+          go mod tidy
       - name: Run tests
         run: |
           ./test.sh
