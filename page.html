@@ -260,7 +260,7 @@
             let wpath = item.wpath;
             let rpath = item.rpath;
             {{ if .EnableDownloads }}
-            var xml = `<td class="wide"><a href="${wpath}">${rpath}</a></td>`;
+            var xml = `<td class="wide"><a href="${wpath}" target="_blank">${rpath}</a></td>`;
             {{ else }}
             var xml = `${rpath}`;
             {{ end }}
