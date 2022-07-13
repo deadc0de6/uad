@@ -261,7 +261,6 @@ func apiListFiles(param *Param) func(http.ResponseWriter, *http.Request) {
 		// start spinner
 		s := spinner.New(spinner.CharSets[12], 100*time.Millisecond)
 		s.Start()
-		time.Sleep(4 * time.Second)
 		defer s.Stop()
 
 		// get the files
