@@ -165,9 +165,12 @@ func walker(base string, webBase string, hfiles *[]*HTMLFile, hiddenFiles bool) 
 		log.Debugf("  fs path:\"%s\" -> \"%s\"", path, rpath)
 
 		if !hiddenFiles {
-			if strings.HasPrefix(rpath, ".") {
-				log.Debugf("skipping hidden file: %s", rpath)
-				return nil
+			entries := strings.Split(rpath, string(os.PathSeparator))
+			for _, entry := range entries {
+				if strings.HasPrefix(entry, ".") {
+					log.Debugf("skipping hidden file: %s", rpath)
+					return nil
+				}
 			}
 		}
 
