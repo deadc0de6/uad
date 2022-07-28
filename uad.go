@@ -14,7 +14,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -32,6 +31,7 @@ const (
 	webUploadPath = "upload/"
 	webFilePath   = "files/"
 	title         = "uad"
+	pathName      = "path"
 )
 
 var (
@@ -354,24 +354,22 @@ func startServer(param *Param) error {
 
 	// construct all endpoints
 	var subs []string
-	for _, p := range param.Paths {
-		base := path.Base(p)
-		base = normalizeString(base)
-		subs = append(subs, base)
+	for idx := range param.Paths {
+		sub := fmt.Sprintf("%s%d", pathName, idx)
+		subs = append(subs, sub)
 	}
 
 	// handle main page
-	main := fmt.Sprintf("/%s", subs[0])
+	main := fmt.Sprintf("%s%d", pathName, 0)
 	log.Debugf("serving / to %s", main)
 	http.HandleFunc("/", redirectorHandler(main))
 
 	// setup all endpoints
-	for _, p := range param.Paths {
-		base := path.Base(p)
-		base = normalizeString(base)
+	for idx, p := range param.Paths {
+		name := fmt.Sprintf("%s%d", pathName, idx)
 
 		pparam := &PathParam{
-			WebPath:         base,
+			WebPath:         name,
 			FSPath:          p,
 			EnableUploads:   param.EnableUploads,
 			EnableDownloads: param.EnableDownloads,
@@ -381,16 +379,16 @@ func startServer(param *Param) error {
 		}
 
 		// handle main page
-		webp := fmt.Sprintf("/%s", base)
+		webp := fmt.Sprintf("/%s", name)
 		log.Debugf("serving for %s: %s", pparam.FSPath, webp)
 		http.HandleFunc(webp, viewHandler(pparam))
 
 		// handle uploads
 		if param.EnableUploads {
-			webp = fmt.Sprintf("/%s/upload", base)
+			webp = fmt.Sprintf("/%s/upload", name)
 			log.Debugf("serving for %s: %s", pparam.FSPath, webp)
 			http.HandleFunc(webp, uploadHandler(pparam))
-			webp = fmt.Sprintf("/%s/upload/", base)
+			webp = fmt.Sprintf("/%s/upload/", name)
 			log.Debugf("serving for %s: %s", pparam.FSPath, webp)
 			http.HandleFunc(webp, uploadHandler(pparam))
 		}
@@ -398,19 +396,19 @@ func startServer(param *Param) error {
 		// handle downloads
 		if param.EnableDownloads {
 			fs := http.FileServer(http.Dir(pparam.FSPath))
-			webp = fmt.Sprintf("/%s/files", base)
+			webp = fmt.Sprintf("/%s/files", name)
 			log.Debugf("serving for %s: %s", pparam.FSPath, webp)
 			http.Handle(webp, http.StripPrefix(webp, fs))
-			webp = fmt.Sprintf("/%s/files/", base)
+			webp = fmt.Sprintf("/%s/files/", name)
 			log.Debugf("serving for %s: %s", pparam.FSPath, webp)
 			http.Handle(webp, http.StripPrefix(webp, fs))
 		}
 
 		// API file listing endpoint
-		webp = fmt.Sprintf("/%s/api/files", base)
+		webp = fmt.Sprintf("/%s/api/files", name)
 		log.Debugf("serving for %s: %s", pparam.FSPath, webp)
 		http.HandleFunc(webp, apiListFiles(pparam))
-		webp = fmt.Sprintf("/%s/api/files/", base)
+		webp = fmt.Sprintf("/%s/api/files/", name)
 		log.Debugf("serving for %s: %s", pparam.FSPath, webp)
 		http.HandleFunc(webp, apiListFiles(pparam))
 	}
@@ -442,12 +440,6 @@ func resolveSymlink(path string) string {
 		return path
 	}
 	return origin
-}
-
-// normalize a string
-func normalizeString(str string) string {
-	str = strings.Replace(str, " ", "-", -1)
-	return str
 }
 
 // resolve path
