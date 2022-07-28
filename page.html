@@ -91,6 +91,15 @@
     <title>{{ .Title }}</title>
   </head>
   <body>
+    {{ $length := len .Others }}
+    {{ if ne $length 1 }}
+    <div class="topnav">
+      {{ range  .Others }}
+      <a href="/{{ . }}">{{ . }}</a>
+      {{ end }}
+    </div>
+    {{ end }}
+
     {{ if .EnableUploads }}
     <div id="drophere">
       <form enctype="multipart/form-data" method="post" >
@@ -238,10 +247,8 @@
       // fill files from backend
       window.addEventListener('load', getFiles());
       function getFiles() {
-        console.log('to spin...')
         showSpinner();
-        console.log('spinning...')
-        var url = "./api/files";
+        var url = "./{{ .BaseName }}/api/files";
         fetch(url)
         .then(function(response){
           hideSpinner();
