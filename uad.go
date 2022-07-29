@@ -98,7 +98,7 @@ func isValidDir(path string) error {
 	}
 
 	if !dir.IsDir() {
-		return fmt.Errorf("%s is not a valid directory", path)
+		return fmt.Errorf("\"%s\" is not a valid directory", path)
 	}
 	return nil
 }
@@ -459,12 +459,10 @@ func usage() {
 
 // validate and normalize path
 func checkPath(path string) string {
-	err := isValidDir(path)
-	if err != nil {
-		log.Fatal(err)
-	}
+	var err error
+	log.Debugf("check valid path for \"%s\"", path)
 
-	path, err = resolvePath(path)
+	err = isValidDir(path)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -479,22 +477,29 @@ func getNamedPath(str string, fromParent bool, idx int) *NamedPath {
 	if strings.Contains(str, ":") {
 		fields := strings.Split(str, ":")
 		name = fields[0]
-		path = checkPath(fields[1])
+		path = fields[1]
 	} else {
-		path = checkPath(str)
+		path = str
+	}
+
+	path, err := resolvePath(path)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	if fromParent {
-		path = filepath.Base(path)
-		path = strings.Replace(path, " ", "-", -1)
+		name = filepath.Base(path)
+		name = strings.Replace(name, " ", "-", -1)
 	}
 
 	if len(name) < 1 {
 		name = fmt.Sprintf("%s%d", pathName, idx)
 	}
 
+	log.Debugf("from arg \"%s\" to name:%s and path:%s", str, name, path)
+	path = checkPath(path)
 	np := NamedPath{
-		Path: checkPath(path),
+		Path: path,
 		Name: name,
 	}
 	return &np
