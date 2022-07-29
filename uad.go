@@ -45,7 +45,7 @@ var (
 type Param struct {
 	Host            string
 	Port            int
-	Paths           []string
+	NPaths          []*NamedPath
 	MaxUploadSize   int64
 	EnableUploads   bool
 	EnableDownloads bool
@@ -72,6 +72,11 @@ type TmplData struct {
 	EnableUploads   bool
 	EnableDownloads bool
 	Others          []string
+}
+
+type NamedPath struct {
+	Path string
+	Name string
 }
 
 // HTMLFile an uploaded file
@@ -354,23 +359,19 @@ func startServer(param *Param) error {
 
 	// construct all endpoints
 	var subs []string
-	for idx := range param.Paths {
-		sub := fmt.Sprintf("%s%d", pathName, idx)
-		subs = append(subs, sub)
+	for _, n := range param.NPaths {
+		subs = append(subs, n.Name)
 	}
 
 	// handle main page
-	main := fmt.Sprintf("%s%d", pathName, 0)
-	log.Debugf("serving / to %s", main)
-	http.HandleFunc("/", redirectorHandler(main))
+	log.Debugf("serving / to %s", subs[0])
+	http.HandleFunc("/", redirectorHandler(subs[0]))
 
 	// setup all endpoints
-	for idx, p := range param.Paths {
-		name := fmt.Sprintf("%s%d", pathName, idx)
-
+	for _, p := range param.NPaths {
 		pparam := &PathParam{
-			WebPath:         name,
-			FSPath:          p,
+			WebPath:         p.Name,
+			FSPath:          p.Path,
 			EnableUploads:   param.EnableUploads,
 			EnableDownloads: param.EnableDownloads,
 			MaxUploadSize:   param.MaxUploadSize,
@@ -379,16 +380,16 @@ func startServer(param *Param) error {
 		}
 
 		// handle main page
-		webp := fmt.Sprintf("/%s", name)
+		webp := fmt.Sprintf("/%s", p.Name)
 		log.Debugf("serving for %s: %s", pparam.FSPath, webp)
 		http.HandleFunc(webp, viewHandler(pparam))
 
 		// handle uploads
 		if param.EnableUploads {
-			webp = fmt.Sprintf("/%s/upload", name)
+			webp = fmt.Sprintf("/%s/upload", p.Name)
 			log.Debugf("serving for %s: %s", pparam.FSPath, webp)
 			http.HandleFunc(webp, uploadHandler(pparam))
-			webp = fmt.Sprintf("/%s/upload/", name)
+			webp = fmt.Sprintf("/%s/upload/", p.Name)
 			log.Debugf("serving for %s: %s", pparam.FSPath, webp)
 			http.HandleFunc(webp, uploadHandler(pparam))
 		}
@@ -396,19 +397,19 @@ func startServer(param *Param) error {
 		// handle downloads
 		if param.EnableDownloads {
 			fs := http.FileServer(http.Dir(pparam.FSPath))
-			webp = fmt.Sprintf("/%s/files", name)
+			webp = fmt.Sprintf("/%s/files", p.Name)
 			log.Debugf("serving for %s: %s", pparam.FSPath, webp)
 			http.Handle(webp, http.StripPrefix(webp, fs))
-			webp = fmt.Sprintf("/%s/files/", name)
+			webp = fmt.Sprintf("/%s/files/", p.Name)
 			log.Debugf("serving for %s: %s", pparam.FSPath, webp)
 			http.Handle(webp, http.StripPrefix(webp, fs))
 		}
 
 		// API file listing endpoint
-		webp = fmt.Sprintf("/%s/api/files", name)
+		webp = fmt.Sprintf("/%s/api/files", p.Name)
 		log.Debugf("serving for %s: %s", pparam.FSPath, webp)
 		http.HandleFunc(webp, apiListFiles(pparam))
-		webp = fmt.Sprintf("/%s/api/files/", name)
+		webp = fmt.Sprintf("/%s/api/files/", p.Name)
 		log.Debugf("serving for %s: %s", pparam.FSPath, webp)
 		http.HandleFunc(webp, apiListFiles(pparam))
 	}
@@ -452,7 +453,7 @@ func resolvePath(path string) (string, error) {
 
 // print usage
 func usage() {
-	fmt.Fprintf(os.Stderr, "Usage: %s [<options>] [<path>...]\n", os.Args[0])
+	fmt.Fprintf(os.Stderr, "Usage: %s [<options>] [[name:]<path>...]\n", os.Args[0])
 	flag.PrintDefaults()
 }
 
@@ -471,6 +472,34 @@ func checkPath(path string) string {
 	return path
 }
 
+// get a named path
+func getNamedPath(str string, fromParent bool, idx int) *NamedPath {
+	var name, path string
+
+	if strings.Contains(str, ":") {
+		fields := strings.Split(str, ":")
+		name = fields[0]
+		path = checkPath(fields[1])
+	} else {
+		path = checkPath(str)
+	}
+
+	if fromParent {
+		path = filepath.Base(path)
+		path = strings.Replace(path, " ", "-", -1)
+	}
+
+	if len(name) < 1 {
+		name = fmt.Sprintf("%s%d", pathName, idx)
+	}
+
+	np := NamedPath{
+		Path: checkPath(path),
+		Name: name,
+	}
+	return &np
+}
+
 // entry point
 func main() {
 	hostArg := flag.String("host", "", "Host to listen to")
@@ -479,6 +508,7 @@ func main() {
 	upArg := flag.Bool("no-uploads", false, "Disable uploads")
 	downArg := flag.Bool("no-downloads", false, "Disable downloads")
 	hiddenArg := flag.Bool("show-hidden", false, "Show hidden files")
+	nameArg := flag.Bool("from-parent", false, "Paths get their names from parent dir")
 	helpArg := flag.Bool("help", false, "Show usage")
 	versArg := flag.Bool("version", false, "Show version")
 	debugArg := flag.Bool("debug", false, "Debug mode")
@@ -499,12 +529,14 @@ func main() {
 		os.Exit(0)
 	}
 
-	var paths []string
+	var namedpaths []*NamedPath
 	if len(flag.Args()) < 1 {
-		paths = append(paths, checkPath("."))
+		np := getNamedPath(".", *nameArg, 0)
+		namedpaths = append(namedpaths, np)
 	} else {
-		for _, p := range flag.Args() {
-			paths = append(paths, checkPath(p))
+		for idx, p := range flag.Args() {
+			np := getNamedPath(p, *nameArg, idx)
+			namedpaths = append(namedpaths, np)
 		}
 	}
 
@@ -518,7 +550,7 @@ func main() {
 	param := &Param{
 		Host:            *hostArg,
 		Port:            *portArg,
-		Paths:           paths,
+		NPaths:          namedpaths,
 		EnableUploads:   !*upArg,
 		EnableDownloads: !*downArg,
 		MaxUploadSize:   MaxUploadSize,
@@ -527,9 +559,9 @@ func main() {
 	log.Debugf("%#v", param)
 
 	fmt.Printf("- version: %s\n", version)
-	fmt.Printf("- paths:")
-	for _, p := range param.Paths {
-		fmt.Printf("  \"%s\"\n", p)
+	fmt.Printf("- paths:\n")
+	for _, p := range param.NPaths {
+		fmt.Printf("  %s: \"%s\"\n", p.Name, p.Path)
 	}
 	fmt.Printf("- download enabled: %v\n", param.EnableDownloads)
 	fmt.Printf("- upload enabled: %v\n", param.EnableUploads)
@@ -538,7 +570,7 @@ func main() {
 	}
 	fmt.Printf("- show hidden files: %v\n", param.HiddenFiles)
 
-	if len(param.Paths) < 1 {
+	if len(param.NPaths) < 1 {
 		log.Fatal("no path provided")
 	}
 
