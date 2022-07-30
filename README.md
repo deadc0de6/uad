@@ -13,25 +13,26 @@ is a very tiny web server allowing to upload and download files.
 # Usage
 
 ```bash
-Usage: ./uad [<options>] [<work-directory>]
+Usage: ./uad [<options>] [[name:]<path>...]
   -debug
-    	Debug mode
+        Debug mode
+  -from-parent
+        Paths get their names from parent dir
   -help
-    	Show usage
+        Show usage
   -host string
-    	Host to listen to
+        Host to listen to
   -max-upload string
-    	Max upload size in bytes (default "1G")
+        Max upload size in bytes (default "1G")
   -no-downloads
-    	Disable downloads
+        Disable downloads
   -no-uploads
-    	Disable uploads
+        Disable uploads
   -port int
-    	Port to listen to (default 6969)
+        Port to listen to (default 6969)
   -show-hidden
-    	Show hidden files
+        Show hidden files
   -version
-    	Show version
 ```
 
 # Install
