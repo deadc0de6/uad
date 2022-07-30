@@ -74,6 +74,7 @@ type TmplData struct {
 	Others          []string
 }
 
+// NamedPath a named path
 type NamedPath struct {
 	Path string
 	Name string
