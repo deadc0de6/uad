@@ -49,6 +49,7 @@ var (
 	cliParams = Param{}
 )
 
+// Settings the settings
 type Settings struct {
 	Host            string
 	Port            int
