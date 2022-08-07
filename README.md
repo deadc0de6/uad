@@ -13,27 +13,27 @@ is a very tiny web server allowing to upload and download files.
 # Usage
 
 ```bash
-Usage: ./uad [<options>] [[name:]<path>...]
-  -debug
-        Debug mode
-  -from-parent
-        Paths get their names from parent dir
-  -help
-        Show usage
-  -host string
-        Host to listen to
-  -max-upload string
-        Max upload size in bytes (default "1G")
-  -no-downloads
-        Disable downloads
-  -no-uploads
-        Disable uploads
-  -port int
-        Port to listen to (default 6969)
-  -show-hidden
-        Show hidden files
-  -version
+Very tiny web server allowing to upload and download files.
+
+Usage:
+  uad [flags] <path>...
+
+Flags:
+  -d, --debug               Debug mode
+  -P, --from-parent         Paths get their names from parent dir
+  -h, --help                help for uad
+  -A, --host string         Host to listen to
+  -m, --max-upload string   Max upload size (default "1G")
+  -D, --no-downloads        Disable downloads
+  -U, --no-uploads          Disable uploads
+  -p, --port int            Port to listen to (default 6969)
+  -s, --serve-subs          Serve all directories found in <path>
+  -H, --show-hidden         Show hidden files
+  -v, --version             version for uad
 ```
+
+Every cli switch can be set using environment variable with `UAD_` prefix.
+For example setting `--show-hidden` would need `export UAD_SHOW_HIDDEN=true`.
 
 # Install
 
@@ -56,6 +56,14 @@ $ docker run -d --name uad -p 6969:6969 -v /tmp/uad-files:/files deadc0de6/uad
 
 Or [compile it from source](#compile-from-source)
 
+## Compile from source
+
+```bash
+$ go mod tidy
+$ make
+$ ./uad --help
+```
+
 # Reverse proxy
 
 nginx for a sub domain
@@ -74,16 +82,8 @@ location /uad/ {
 }
 ```
 
-If you specified a different `-max-upload` than the default (`1G`),
+If you specified a different `--max-upload` than the default (`1G`),
 you need to adapt the `client_max_body_size`.
-
-## Compile from source
-
-```bash
-$ go mod tidy
-$ make
-$ ./uad -help
-```
 
 # Contribution
 

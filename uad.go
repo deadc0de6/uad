@@ -9,11 +9,11 @@ import (
 	_ "embed"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -22,6 +22,8 @@ import (
 
 	"github.com/briandowns/spinner"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -30,7 +32,7 @@ const (
 	// web endpoint for upload
 	webUploadPath = "upload/"
 	webFilePath   = "files/"
-	title         = "uad"
+	name          = "uad"
 	pathName      = "path"
 )
 
@@ -41,15 +43,20 @@ var (
 	page string
 )
 
-// Param global parameters
-type Param struct {
+var (
+	// cli parameters
+	rootCmd   *cobra.Command
+	cliParams = Param{}
+)
+
+type Settings struct {
 	Host            string
 	Port            int
 	NPaths          []*NamedPath
 	MaxUploadSize   int64
 	EnableUploads   bool
 	EnableDownloads bool
-	HiddenFiles     bool
+	ShowHiddenFiles bool
 }
 
 // PathParam single exposed path parameter
@@ -91,17 +98,73 @@ type HTMLFile struct {
 	RPath string `json:"rpath"`
 }
 
+// Param global parameters
+type Param struct {
+	Host                string
+	Port                int
+	Debug               bool
+	MaxUploadSizeString string
+	EnableUploads       bool
+	EnableDownloads     bool
+	ShowHiddenFiles     bool
+	NameFromParent      bool
+	ServeSubs           bool
+}
+
+// init
+func init() {
+	// env variables
+	viper.SetEnvPrefix(strings.ToUpper(name))
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	viper.AutomaticEnv()
+
+	// cli configs
+	rootCmd = &cobra.Command{
+		Use:     fmt.Sprintf("%s [flags] <path>...", name),
+		Version: version,
+		Short:   "Upload And Download",
+		Long:    `Very tiny web server allowing to upload and download files.`,
+		Run: func(cmd *cobra.Command, args []string) {
+			process(args)
+		},
+	}
+
+	// set flags
+	rootCmd.PersistentFlags().StringVarP(&cliParams.Host, "host", "A", viper.GetString("HOST"), "Host to listen to")
+	defPort := viper.GetInt("PORT")
+	if defPort == 0 {
+		defPort = 6969
+	}
+	rootCmd.PersistentFlags().IntVarP(&cliParams.Port, "port", "p", defPort, "Port to listen to")
+	defMax := viper.GetString("MAX_UPLOAD")
+	if len(defMax) < 1 {
+		defMax = string(dfltMaxUploadSize)
+	}
+	rootCmd.PersistentFlags().StringVarP(&cliParams.MaxUploadSizeString, "max-upload", "m", defMax, "Max upload size")
+	rootCmd.PersistentFlags().BoolVarP(&cliParams.EnableUploads, "no-uploads", "U", viper.GetBool("NO_UPLOADS"), "Disable uploads")
+	rootCmd.PersistentFlags().BoolVarP(&cliParams.EnableDownloads, "no-downloads", "D", viper.GetBool("NO_DOWNLOADS"), "Disable downloads")
+	rootCmd.PersistentFlags().BoolVarP(&cliParams.ShowHiddenFiles, "show-hidden", "H", viper.GetBool("SHOW_HIDDEN"), "Show hidden files")
+	rootCmd.PersistentFlags().BoolVarP(&cliParams.ServeSubs, "serve-subs", "s", viper.GetBool("SERVE_SUBS"), "Serve all directories found in <path>")
+	rootCmd.PersistentFlags().BoolVarP(&cliParams.NameFromParent, "from-parent", "P", viper.GetBool("FROM_PARENT"), "Paths get their names from parent dir")
+	rootCmd.PersistentFlags().BoolVarP(&cliParams.Debug, "debug", "d", viper.GetBool("DEBUG"), "Debug mode")
+}
+
+// cli parsing
+func parseCli() error {
+	return rootCmd.Execute()
+}
+
 // is path a valid directory
-func isValidDir(path string) error {
+func isValidDir(path string) bool {
 	dir, err := os.Stat(path)
 	if err != nil {
-		return fmt.Errorf("path \"%s\" is not valid: %s", path, err.Error())
+		return false
 	}
 
 	if !dir.IsDir() {
-		return fmt.Errorf("\"%s\" is not a valid directory", path)
+		return false
 	}
-	return nil
+	return true
 }
 
 // return size in human readable format
@@ -146,6 +209,17 @@ func humanToSize(size string) (int64, error) {
 	return int64(n * mult), nil
 }
 
+func isHidden(path string) bool {
+	entries := strings.Split(path, string(os.PathSeparator))
+	for _, entry := range entries {
+		if strings.HasPrefix(entry, ".") {
+			log.Debugf("skipping hidden file: %s", path)
+			return true
+		}
+	}
+	return false
+}
+
 // walk a directory and return HTMLFiles list
 func walker(base string, webBase string, hfiles *[]*HTMLFile, hiddenFiles bool) filepath.WalkFunc {
 	return func(path string, info os.FileInfo, err error) error {
@@ -171,12 +245,8 @@ func walker(base string, webBase string, hfiles *[]*HTMLFile, hiddenFiles bool) 
 		log.Debugf("  fs path:\"%s\" -> \"%s\"", path, rpath)
 
 		if !hiddenFiles {
-			entries := strings.Split(rpath, string(os.PathSeparator))
-			for _, entry := range entries {
-				if strings.HasPrefix(entry, ".") {
-					log.Debugf("skipping hidden file: %s", rpath)
-					return nil
-				}
+			if isHidden(rpath) {
+				return nil
 			}
 		}
 
@@ -341,7 +411,7 @@ func viewHandler(param *PathParam) func(http.ResponseWriter, *http.Request) {
 		}
 
 		data := TmplData{
-			Title:           title,
+			Title:           name,
 			Version:         version,
 			BaseName:        param.WebPath,
 			UploadPath:      fmt.Sprintf("%s/%s", param.WebPath, webUploadPath),
@@ -355,12 +425,12 @@ func viewHandler(param *PathParam) func(http.ResponseWriter, *http.Request) {
 }
 
 // setup and start http server
-func startServer(param *Param) error {
-	addr := fmt.Sprintf("%s:%d", param.Host, param.Port)
+func startServer(settings *Settings) error {
+	addr := fmt.Sprintf("%s:%d", settings.Host, settings.Port)
 
 	// construct all endpoints
 	var subs []string
-	for _, n := range param.NPaths {
+	for _, n := range settings.NPaths {
 		subs = append(subs, n.Name)
 	}
 
@@ -369,14 +439,14 @@ func startServer(param *Param) error {
 	http.HandleFunc("/", redirectorHandler(subs[0]))
 
 	// setup all endpoints
-	for _, p := range param.NPaths {
+	for _, p := range settings.NPaths {
 		pparam := &PathParam{
 			WebPath:         p.Name,
 			FSPath:          p.Path,
-			EnableUploads:   param.EnableUploads,
-			EnableDownloads: param.EnableDownloads,
-			MaxUploadSize:   param.MaxUploadSize,
-			HiddenFiles:     param.HiddenFiles,
+			EnableUploads:   settings.EnableUploads,
+			EnableDownloads: settings.EnableDownloads,
+			MaxUploadSize:   settings.MaxUploadSize,
+			HiddenFiles:     settings.ShowHiddenFiles,
 			Others:          subs,
 		}
 
@@ -386,7 +456,7 @@ func startServer(param *Param) error {
 		http.HandleFunc(webp, viewHandler(pparam))
 
 		// handle uploads
-		if param.EnableUploads {
+		if settings.EnableUploads {
 			webp = fmt.Sprintf("/%s/upload", p.Name)
 			log.Debugf("serving for %s: %s", pparam.FSPath, webp)
 			http.HandleFunc(webp, uploadHandler(pparam))
@@ -396,7 +466,7 @@ func startServer(param *Param) error {
 		}
 
 		// handle downloads
-		if param.EnableDownloads {
+		if settings.EnableDownloads {
 			fs := http.FileServer(http.Dir(pparam.FSPath))
 			webp = fmt.Sprintf("/%s/files", p.Name)
 			log.Debugf("serving for %s: %s", pparam.FSPath, webp)
@@ -452,20 +522,13 @@ func resolvePath(path string) (string, error) {
 	return path, err
 }
 
-// print usage
-func usage() {
-	fmt.Fprintf(os.Stderr, "Usage: %s [<options>] [[name:]<path>...]\n", os.Args[0])
-	flag.PrintDefaults()
-}
-
 // validate and normalize path
 func checkPath(path string) string {
-	var err error
 	log.Debugf("check valid path for \"%s\"", path)
 
-	err = isValidDir(path)
-	if err != nil {
-		log.Fatal(err)
+	if !isValidDir(path) {
+		log.Error(fmt.Errorf("\"%s\" is not a valid directory", path))
+		return ""
 	}
 
 	return path
@@ -499,6 +562,9 @@ func getNamedPath(str string, fromParent bool, idx int) *NamedPath {
 
 	log.Debugf("from arg \"%s\" to name:%s and path:%s", str, name, path)
 	path = checkPath(path)
+	if len(path) < 1 {
+		return nil
+	}
 	np := NamedPath{
 		Path: path,
 		Name: name,
@@ -506,84 +572,118 @@ func getNamedPath(str string, fromParent bool, idx int) *NamedPath {
 	return &np
 }
 
-// entry point
-func main() {
-	hostArg := flag.String("host", "", "Host to listen to")
-	portArg := flag.Int("port", 6969, "Port to listen to")
-	maxUploadSizeArg := flag.String("max-upload", dfltMaxUploadSize, "Max upload size in bytes")
-	upArg := flag.Bool("no-uploads", false, "Disable uploads")
-	downArg := flag.Bool("no-downloads", false, "Disable downloads")
-	hiddenArg := flag.Bool("show-hidden", false, "Show hidden files")
-	nameArg := flag.Bool("from-parent", false, "Paths get their names from parent dir")
-	helpArg := flag.Bool("help", false, "Show usage")
-	versArg := flag.Bool("version", false, "Show version")
-	debugArg := flag.Bool("debug", false, "Debug mode")
-	flag.Parse()
-
-	if *debugArg {
+func process(args []string) {
+	if cliParams.Debug {
 		log.SetLevel(log.DebugLevel)
 		log.Info("debug mode enabled")
 	}
 
-	if *helpArg {
-		usage()
-		os.Exit(0)
-	}
+	log.Debugf("path from parent: %v", cliParams.NameFromParent)
 
-	if *versArg {
-		fmt.Printf("%s v%s\n", os.Args[0], version)
-		os.Exit(0)
-	}
-
+	log.Debugf("paths args: %#v", args)
 	var namedpaths []*NamedPath
-	if len(flag.Args()) < 1 {
-		np := getNamedPath(".", *nameArg, 0)
-		namedpaths = append(namedpaths, np)
-	} else {
-		for idx, p := range flag.Args() {
-			np := getNamedPath(p, *nameArg, idx)
+	if len(args) < 1 {
+		np := getNamedPath(".", cliParams.NameFromParent, 0)
+		if np != nil {
 			namedpaths = append(namedpaths, np)
+		}
+	} else {
+		for idx, p := range args {
+			np := getNamedPath(p, cliParams.NameFromParent, idx)
+			if np != nil {
+				namedpaths = append(namedpaths, np)
+			}
 		}
 	}
 
-	MaxUploadSize, err := humanToSize(*maxUploadSizeArg)
+	// serve directory subs
+	if cliParams.ServeSubs {
+		var subs []*NamedPath
+		var cnt int
+		for _, p := range namedpaths {
+			// read entry in path
+			files, err := os.ReadDir(p.Path)
+			if err != nil {
+				log.Error(err)
+				continue
+			}
+			for _, f := range files {
+				subPath := path.Join(p.Path, f.Name())
+				if !isValidDir(subPath) {
+					// skip non-dir
+					continue
+				}
+				if !cliParams.ShowHiddenFiles {
+					// skip hidden files
+					if isHidden(subPath) {
+						continue
+					}
+				}
+				np := getNamedPath(subPath, cliParams.NameFromParent, cnt)
+				if np != nil {
+					subs = append(subs, np)
+					cnt++
+				}
+			}
+		}
+		namedpaths = subs
+	}
+
+	if log.GetLevel() == log.DebugLevel {
+		// debug print parsed paths
+		for _, np := range namedpaths {
+			log.Debugf("named path %s: %s", np.Name, np.Path)
+		}
+	}
+
+	// max upload size parsing
+	MaxUploadSize, err := humanToSize(cliParams.MaxUploadSizeString)
 	if err != nil {
 		log.Error(err)
 		os.Exit(1)
 	}
 
-	// parameters
-	param := &Param{
-		Host:            *hostArg,
-		Port:            *portArg,
+	// settings
+	settings := &Settings{
+		Host:            cliParams.Host,
+		Port:            cliParams.Port,
 		NPaths:          namedpaths,
-		EnableUploads:   !*upArg,
-		EnableDownloads: !*downArg,
+		EnableUploads:   !cliParams.EnableUploads,
+		EnableDownloads: !cliParams.EnableDownloads,
 		MaxUploadSize:   MaxUploadSize,
-		HiddenFiles:     *hiddenArg,
+		ShowHiddenFiles: cliParams.ShowHiddenFiles,
 	}
-	log.Debugf("%#v", param)
 
+	// print info
+	fmt.Println("settings:")
 	fmt.Printf("- version: %s\n", version)
 	fmt.Printf("- paths:\n")
-	for _, p := range param.NPaths {
+	for _, p := range settings.NPaths {
 		fmt.Printf("  %s: \"%s\"\n", p.Name, p.Path)
 	}
-	fmt.Printf("- download enabled: %v\n", param.EnableDownloads)
-	fmt.Printf("- upload enabled: %v\n", param.EnableUploads)
-	if param.EnableUploads {
-		fmt.Printf("- upload max size: %v\n", sizeToHuman(param.MaxUploadSize))
+	fmt.Printf("- download enabled: %v\n", settings.EnableDownloads)
+	fmt.Printf("- upload enabled: %v\n", settings.EnableUploads)
+	if settings.EnableUploads {
+		fmt.Printf("- upload max size: %v\n", sizeToHuman(settings.MaxUploadSize))
 	}
-	fmt.Printf("- show hidden files: %v\n", param.HiddenFiles)
+	fmt.Printf("- show hidden files: %v\n", settings.ShowHiddenFiles)
 
-	if len(param.NPaths) < 1 {
+	if len(settings.NPaths) < 1 {
 		log.Fatal("no path provided")
 	}
 
-	err = startServer(param)
+	err = startServer(settings)
 	if err != nil {
 		log.Error(err)
 		os.Exit(1)
 	}
 	os.Exit(0)
+}
+
+// entry point
+func main() {
+	err := parseCli()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
