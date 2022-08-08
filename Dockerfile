@@ -24,5 +24,4 @@ RUN cp /build/uad .
 FROM scratch
 COPY --from=builder /dist/uad /
 EXPOSE 6969
-CMD ["/uad", "/files"]
-
+ENTRYPOINT ["/uad", "/files"]
